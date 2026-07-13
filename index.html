@@ -593,6 +593,11 @@
         return amount;
       }
 
+      function durationText(task, range) {
+        if (task.type === "milestone") { return "0 days"; }
+        return workdayCount(range.start, range.end) + " days";
+      }
+
       function copyDefaults() {
         return JSON.parse(JSON.stringify(defaults));
       }
@@ -776,7 +781,8 @@
         var endCell = makeDateCell(task, "end", range.end);
         var durationCell = document.createElement("div");
         durationCell.className = "task-cell duration-cell";
-        durationCell.textContent = task.type === "milestone" ? "0 days" : workdayCount(range.start, range.end) + " days";
+        durationCell.textContent = durationText(task, range);
+        durationCell.title = "根据开始和结束日期自动计算（含起止日，不含周末）";
         row.appendChild(nameCell);
         row.appendChild(startCell);
         row.appendChild(endCell);

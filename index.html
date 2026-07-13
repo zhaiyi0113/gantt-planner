@@ -482,7 +482,7 @@
   </main>
 
   <aside class="corner-help" aria-label="使用提示">
-    双击单元格编辑 · 拖动任务条改日期 · <kbd>⋮</kbd> 管理任务
+    单击单元格编辑 · 拖动任务条改日期 · <kbd>⋮</kbd> 管理任务
   </aside>
   <div class="action-menu" id="actionMenu" hidden></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -606,8 +606,9 @@
         if (!descendants.length) {
           return { start: task.start, end: task.end };
         }
-        var start = descendants.map(function (item) { return item.start; }).sort()[0];
-        var end = descendants.map(function (item) { return item.end; }).sort().slice(-1)[0];
+        var ranges = descendants.map(function (item) { return displayRange(item); });
+        var start = ranges.map(function (range) { return range.start; }).sort()[0];
+        var end = ranges.map(function (range) { return range.end; }).sort().slice(-1)[0];
         return { start: start, end: end };
       }
 
@@ -621,7 +622,9 @@
       }
 
       function displayRange(task) {
-        return task.type === "summary" ? summaryRange(task) : { start: task.start, end: task.end };
+        return task.type === "summary" && !task.manualRange ?
+          summaryRange(task) :
+          { start: task.start, end: task.end };
       }
 
       function visibleRows() {
@@ -640,6 +643,15 @@
 
       function totalTimelineDays() {
         return dayDifference(timelineStart, timelineEnd) + 1;
+      }
+
+      function refreshTimelineRange() {
+        if (!tasks.length) { return; }
+        var ranges = tasks.map(function (task) { return displayRange(task); });
+        var earliest = ranges.map(function (range) { return range.start; }).sort()[0];
+        var latest = ranges.map(function (range) { return range.end; }).sort().slice(-1)[0];
+        timelineStart = addDays(parseDate(earliest), -7);
+        timelineEnd = addDays(parseDate(latest), 9);
       }
 
       function setTimelineStyle() {
@@ -727,15 +739,16 @@
         var name = document.createElement("span");
         name.className = "task-name" + (isSummary ? " summary-name" : "");
         name.textContent = task.name;
-        name.title = "双击编辑任务名称";
+        nameCell.dataset.field = "name";
+        name.title = "单击编辑任务名称";
         nameCell.appendChild(name);
-        nameCell.addEventListener("dblclick", function (event) {
+        nameCell.addEventListener("click", function (event) {
           event.stopPropagation();
-          openEditor(nameCell, task, "name", task.name);
+          requestEditor(task, "name");
         });
 
-        var startCell = makeDateCell(task, "start", range.start, !isSummary);
-        var endCell = makeDateCell(task, "end", range.end, !isSummary);
+        var startCell = makeDateCell(task, "start", range.start);
+        var endCell = makeDateCell(task, "end", range.end);
         var durationCell = document.createElement("div");
         durationCell.className = "task-cell duration-cell";
         durationCell.textContent = task.type === "milestone" ? "0 days" : workdayCount(range.start, range.end) + " days";
@@ -750,19 +763,18 @@
         return row;
       }
 
-      function makeDateCell(task, field, value, editable) {
+      function makeDateCell(task, field, value) {
         var cell = document.createElement("div");
-        cell.className = "task-cell" + (editable ? " can-edit" : "");
+        cell.className = "task-cell can-edit";
+        cell.dataset.field = field;
         cell.textContent = value;
-        if (editable) {
-          cell.title = "双击编辑日期";
-          cell.addEventListener("dblclick", function (event) {
-            event.stopPropagation();
-            openEditor(cell, task, field, value);
-          });
-        } else {
-          cell.title = "汇总任务日期会根据子任务自动计算";
-        }
+        cell.title = task.type === "summary" ?
+          "单击编辑汇总日期（之后不再随子任务自动变化）" :
+          "单击编辑日期";
+        cell.addEventListener("click", function (event) {
+          event.stopPropagation();
+          requestEditor(task, field);
+        });
         return cell;
       }
 
@@ -805,6 +817,7 @@
       }
 
       function render() {
+        refreshTimelineRange();
         renderHeader();
         var rows = visibleRows();
         taskRowsElement.innerHTML = "";
@@ -814,6 +827,16 @@
           timelineCanvas.appendChild(createTimelineRow(entry));
         });
         timelineCanvas.style.minHeight = Math.max(timelinePane.clientHeight, rows.length * 45) + "px";
+      }
+
+      function requestEditor(task, field) {
+        selectedId = task.id;
+        requestAnimationFrame(function () {
+          var row = taskRowsElement.querySelector('[data-task-id="' + task.id + '"]');
+          var cell = row ? row.querySelector('.task-cell[data-field="' + field + '"]') : null;
+          var value = field === "name" ? task.name : displayRange(task)[field];
+          if (cell) { openEditor(cell, task, field, value); }
+        });
       }
 
       function openEditor(cell, task, field, currentValue) {
@@ -837,6 +860,7 @@
               task.name = nextValue;
             } else {
               task[field] = nextValue;
+              if (task.type === "summary") { task.manualRange = true; }
               if (parseDate(task.end) < parseDate(task.start)) {
                 if (field === "start") { task.end = nextValue; }
                 else { task.start = nextValue; }

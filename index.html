@@ -8,7 +8,8 @@
     :root {
       --row-height: 45px;
       --header-height: 80px;
-      --left-width: 820px;
+      --left-width: 910px;
+      --toolbar-space: 82px;
       --day-width: 8.5px;
       --week-width: 59.5px;
       --ink: #17202b;
@@ -40,12 +41,13 @@
     button, input { font: inherit; }
 
     .gantt-app {
+      position: relative;
       width: 100%;
       height: 100%;
       min-width: 960px;
       display: grid;
       grid-template-rows: var(--header-height) minmax(0, 1fr);
-      padding-top: 82px;
+      padding-top: var(--toolbar-space);
       background: #fff;
       user-select: none;
     }
@@ -59,7 +61,7 @@
 
     .task-header {
       display: grid;
-      grid-template-columns: 365px 168px 167px 120px;
+      grid-template-columns: minmax(260px, 1.7fr) minmax(110px, .78fr) minmax(110px, .78fr) minmax(90px, .55fr) minmax(70px, .4fr);
       height: var(--header-height);
       background: var(--header);
       border-top: 1px solid var(--line);
@@ -173,10 +175,43 @@
 
     .task-pane::-webkit-scrollbar { display: none; }
 
+    .pane-resizer {
+      position: absolute;
+      top: var(--toolbar-space);
+      bottom: 0;
+      left: calc(var(--left-width) - 6px);
+      z-index: 12;
+      width: 12px;
+      cursor: col-resize;
+      touch-action: none;
+    }
+
+    .pane-resizer::before {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 5px;
+      width: 2px;
+      background: #d9e0e7;
+      content: "";
+      transition: background .12s ease, width .12s ease;
+    }
+
+    .pane-resizer:hover::before,
+    .pane-resizer:focus-visible::before,
+    body.is-resizing .pane-resizer::before {
+      width: 3px;
+      left: 4.5px;
+      background: #2b80cd;
+    }
+
+    .pane-resizer:focus-visible { outline: none; }
+    body.is-resizing { cursor: col-resize; user-select: none; }
+
     .task-row {
       height: var(--row-height);
       display: grid;
-      grid-template-columns: 365px 168px 167px 120px;
+      grid-template-columns: minmax(260px, 1.7fr) minmax(110px, .78fr) minmax(110px, .78fr) minmax(90px, .55fr) minmax(70px, .4fr);
       border-bottom: 1px solid var(--line);
       background: #fff;
       cursor: default;
@@ -447,17 +482,17 @@
     @media (max-width: 1100px) {
       .corner-help { flex-wrap: wrap; }
       .corner-help > span { width: 100%; }
-      .gantt-app { padding-top: 112px; }
+      .gantt-app { --toolbar-space: 112px; }
     }
 
     @media (max-width: 1180px) {
       .project-actions { top: 78px; flex-wrap: wrap; }
-      .gantt-app { padding-top: 128px; }
+      .gantt-app { --toolbar-space: 128px; }
     }
 
     @media (max-width: 1100px) {
       .project-actions { top: 98px; }
-      .gantt-app { padding-top: 154px; }
+      .gantt-app { --toolbar-space: 154px; }
     }
 
     .corner-help kbd {
@@ -578,9 +613,9 @@
 
     .hidden-input { display: none; }
 
-    @media (max-width: 1150px) {
-      :root { --left-width: 660px; }
-      .task-header, .task-row { grid-template-columns: 300px 125px 125px 110px; }
+    @media (max-width: 1200px) {
+      :root { --left-width: 750px; }
+      .task-header, .task-row { grid-template-columns: minmax(300px, 1fr) 125px 125px 110px 90px; }
       .task-cell { font-size: 15px; padding-left: 11px; padding-right: 11px; }
       .column-header { font-size: 15px; padding-left: 11px; }
     }
@@ -594,6 +629,7 @@
         <div class="column-header"><span>Start</span><button class="header-menu" data-quick="zoomOut" aria-label="缩小时间轴">⋮</button></div>
         <div class="column-header"><span>End</span><button class="header-menu" data-quick="zoomIn" aria-label="放大时间轴">⋮</button></div>
         <div class="column-header"><span>Duration</span></div>
+        <div class="column-header"><span>Weeks</span></div>
       </div>
       <div class="timeline-header-viewport" id="timelineHeaderViewport">
         <div class="timeline-header-inner" id="timelineHeaderInner">
@@ -611,6 +647,7 @@
         <div class="timeline-canvas" id="timelineCanvas"></div>
       </div>
     </section>
+    <div class="pane-resizer" id="paneResizer" role="separator" aria-label="调整任务表宽度" aria-orientation="vertical" tabindex="0"></div>
   </main>
 
   <aside class="project-actions" aria-label="Project file actions">
@@ -645,7 +682,10 @@
       var DAY = 86400000;
       var STORAGE_KEY = "editable-gantt-reference-v1";
       var LANGUAGE_KEY = "editable-gantt-language-v1";
+      var TABLE_WIDTH_KEY = "editable-gantt-table-width-v1";
       var MAX_HISTORY_STEPS = 80;
+      var MIN_TABLE_WIDTH = 750;
+      var MIN_TIMELINE_WIDTH = 280;
       var DAY_WIDTH = 8.5;
       var timelineStart = parseDate("2026-04-20");
       var timelineEnd = parseDate("2026-08-16");
@@ -653,6 +693,7 @@
       var collapsedIds = new Set();
       var menuOpen = false;
       var dragState = null;
+      var resizeState = null;
       var scrollLock = false;
       var toastTimer = null;
       var undoStack = [];
@@ -665,9 +706,11 @@
       var timelinePane = document.getElementById("timelinePane");
       var taskPane = document.getElementById("taskPane");
       var timelineHeaderInner = document.getElementById("timelineHeaderInner");
+      var paneResizer = document.getElementById("paneResizer");
       var actionMenu = document.getElementById("actionMenu");
       var importInput = document.getElementById("importInput");
       var languageSelect = document.getElementById("languageSelect");
+      var tableWidth = loadTableWidth();
 
       var defaults = [
         { id: "system", name: "System integration", start: "2026-04-27", end: "2026-08-07", type: "summary", parent: null },
@@ -692,6 +735,11 @@
           start: "开始",
           end: "结束",
           duration: "工期",
+          weeks: "周数",
+          weekUnit: "周",
+          durationHint: "根据开始和结束日期自动计算（含起止日，不含周末）",
+          weeksHint: "每 5 个工作日计算为 1 周",
+          resizePanels: "拖动调整任务表与甘特图区宽度",
           taskTable: "任务表",
           timeline: "时间轴",
           manageTasks: "管理任务",
@@ -744,6 +792,11 @@
           start: "Start",
           end: "End",
           duration: "Duration",
+          weeks: "Weeks",
+          weekUnit: "week",
+          durationHint: "Calculated from Start and End (inclusive, excluding weekends)",
+          weeksHint: "Calculated as 1 week for every 5 working days",
+          resizePanels: "Drag to resize the task table and Gantt chart",
           taskTable: "Task table",
           timeline: "Timeline",
           manageTasks: "Manage tasks",
@@ -834,6 +887,17 @@
         return workdayCount(range.start, range.end) + " " + tr("days");
       }
 
+      function workWeekCount(task, range) {
+        if (task.type === "milestone") { return 0; }
+        return Math.ceil(workdayCount(range.start, range.end) / 5);
+      }
+
+      function weekText(task, range) {
+        var amount = workWeekCount(task, range);
+        var unit = currentLanguage === "en" && amount !== 1 ? "weeks" : tr("weekUnit");
+        return amount + " " + unit;
+      }
+
       function copyDefaults() {
         return JSON.parse(JSON.stringify(defaults));
       }
@@ -846,6 +910,51 @@
         }
       }
 
+      function loadTableWidth() {
+        try {
+          var storedWidth = Number(localStorage.getItem(TABLE_WIDTH_KEY));
+          if (Number.isFinite(storedWidth) && storedWidth >= MIN_TABLE_WIDTH) { return storedWidth; }
+        } catch (error) {
+          // Storage is optional; the default width still works.
+        }
+        return 910;
+      }
+
+      function maximumTableWidth() {
+        return Math.max(MIN_TABLE_WIDTH, window.innerWidth - MIN_TIMELINE_WIDTH);
+      }
+
+      function setTableWidth(nextWidth, persist) {
+        tableWidth = Math.round(Math.max(MIN_TABLE_WIDTH, Math.min(maximumTableWidth(), nextWidth)));
+        document.documentElement.style.setProperty("--left-width", tableWidth + "px");
+        paneResizer.setAttribute("aria-valuemin", String(MIN_TABLE_WIDTH));
+        paneResizer.setAttribute("aria-valuemax", String(maximumTableWidth()));
+        paneResizer.setAttribute("aria-valuenow", String(tableWidth));
+        if (persist) {
+          try { localStorage.setItem(TABLE_WIDTH_KEY, String(tableWidth)); } catch (error) { /* Storage is optional. */ }
+        }
+      }
+
+      function startTableResize(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        resizeState = { startX: event.clientX, startWidth: tableWidth };
+        paneResizer.setPointerCapture(event.pointerId);
+        document.body.classList.add("is-resizing");
+      }
+
+      function moveTableResize(event) {
+        if (!resizeState) { return; }
+        setTableWidth(resizeState.startWidth + event.clientX - resizeState.startX, false);
+      }
+
+      function endTableResize() {
+        if (!resizeState) { return; }
+        resizeState = null;
+        document.body.classList.remove("is-resizing");
+        setTableWidth(tableWidth, true);
+      }
+
       function tr(key) {
         return (translations[currentLanguage] && translations[currentLanguage][key]) ||
           translations["zh-CN"][key] || key;
@@ -853,7 +962,7 @@
 
       function applyTranslations() {
         var headers = document.querySelectorAll(".column-header span");
-        var values = [tr("taskName"), tr("start"), tr("end"), tr("duration")];
+        var values = [tr("taskName"), tr("start"), tr("end"), tr("duration"), tr("weeks")];
         document.documentElement.lang = currentLanguage === "en" ? "en" : "zh-CN";
         document.title = tr("pageTitle");
         document.querySelector(".gantt-app").setAttribute("aria-label", tr("appLabel"));
@@ -872,6 +981,7 @@
         document.getElementById("outdentTaskButton").textContent = tr("outdent");
         document.getElementById("deleteTaskButton").textContent = tr("deleteTask");
         document.querySelector(".project-actions").setAttribute("aria-label", tr("projectActions"));
+        paneResizer.setAttribute("aria-label", tr("resizePanels"));
         document.getElementById("undoButton").textContent = tr("undo");
         document.getElementById("redoButton").textContent = tr("redo");
         document.getElementById("saveProjectButton").textContent = tr("saveFile");
@@ -1130,10 +1240,17 @@
         durationCell.className = "task-cell duration-cell";
         durationCell.textContent = durationText(task, range);
         durationCell.title = "根据开始和结束日期自动计算（含起止日，不含周末）";
+        durationCell.title = tr("durationHint");
+        var weeksCell = document.createElement("div");
+        weeksCell.className = "task-cell duration-cell weeks-cell";
+        weeksCell.textContent = weekText(task, range);
+        weeksCell.title = "每 5 个工作日计算为 1 周";
+        weeksCell.title = tr("weeksHint");
         row.appendChild(nameCell);
         row.appendChild(startCell);
         row.appendChild(endCell);
         row.appendChild(durationCell);
+        row.appendChild(weeksCell);
         row.addEventListener("click", function () {
           selectTask(task.id);
         });
@@ -1726,12 +1843,25 @@
       });
 
       timelineCanvas.addEventListener("pointerdown", startDrag);
+      paneResizer.addEventListener("pointerdown", startTableResize);
+      paneResizer.addEventListener("keydown", function (event) {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") { return; }
+        event.preventDefault();
+        setTableWidth(tableWidth + (event.key === "ArrowLeft" ? -1 : 1) * (event.shiftKey ? 50 : 20), true);
+      });
       document.addEventListener("pointermove", moveDrag);
+      document.addEventListener("pointermove", moveTableResize);
       document.addEventListener("pointerup", endDrag);
+      document.addEventListener("pointerup", endTableResize);
       document.addEventListener("pointercancel", endDrag);
+      document.addEventListener("pointercancel", endTableResize);
       importInput.addEventListener("change", importTasks);
-      window.addEventListener("resize", function () { render(); });
+      window.addEventListener("resize", function () {
+        setTableWidth(tableWidth, false);
+        render();
+      });
 
+      setTableWidth(tableWidth, false);
       applyTranslations();
       render();
       updateHistoryButtons();

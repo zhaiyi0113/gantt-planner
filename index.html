@@ -1375,7 +1375,9 @@
 
       function updateFinalPresentationPanel() {
         var remainingDays = Math.max(0, dayDifference(todayUtcDate(), parseDate(finalPresentationDate)));
-        var remainingWeeks = Math.ceil(remainingDays / 5);
+        // The deadline summary uses whole calendar weeks (7 days). A partial
+        // final week is intentionally not counted, so 50 days is 7 weeks.
+        var remainingWeeks = Math.floor(remainingDays / 7);
         document.getElementById("finalDatePanel").setAttribute("aria-label", tr("finalPresentation"));
         document.getElementById("finalPresentationLabel").textContent = tr("finalPresentation");
         finalPresentationInput.value = finalPresentationDate;

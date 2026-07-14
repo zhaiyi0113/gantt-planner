@@ -373,8 +373,10 @@
       height: 27px;
       min-width: 8px;
       z-index: 2;
-      border: 1px solid rgba(44, 52, 61, .25);
+      overflow: hidden;
+      border: 1px solid #d1d142;
       border-radius: 5px;
+      background: var(--yellow);
       box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12);
       cursor: grab;
       touch-action: none;
@@ -386,22 +388,18 @@
     .bar.summary {
       top: 10px;
       height: 28px;
-      overflow: hidden;
-      border-color: rgba(42, 48, 54, .35);
-      background: var(--summary);
+      border-color: #d1d142;
+      background: var(--yellow);
     }
 
-    .summary-progress {
-      width: 7%;
-      min-width: 29px;
+    .bar-progress {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
       height: 100%;
-      background: var(--summary-dark);
+      background: var(--green);
     }
-
-    .bar.green { background: var(--green); border-color: #58af34; }
-    .bar.yellow { background: var(--yellow); border-color: #d1d142; }
-    .bar.purple { background: var(--purple); border-color: #bd34c7; }
-    .bar.blue { background: var(--blue); border-color: #3669d1; }
 
     .milestone {
       position: absolute;
@@ -409,11 +407,16 @@
       width: 17px;
       height: 17px;
       z-index: 3;
-      background: #a62db9;
-      border: 1px solid rgba(92, 13, 111, .2);
+      background: var(--yellow);
+      border: 1px solid #d1d142;
       transform: rotate(45deg);
       cursor: grab;
       touch-action: none;
+    }
+
+    .milestone.is-complete {
+      background: var(--green);
+      border-color: #58af34;
     }
 
     .bar:focus-visible, .milestone:focus-visible {
@@ -694,6 +697,7 @@
       var menuOpen = false;
       var dragState = null;
       var resizeState = null;
+      var lastProgressDate = "";
       var scrollLock = false;
       var toastTimer = null;
       var undoStack = [];
@@ -854,6 +858,39 @@
 
       function formatDate(date) {
         return date.toISOString().slice(0, 10);
+      }
+
+      function todayUtcDate() {
+        var now = new Date();
+        return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+      }
+
+      function taskProgressPercent(range) {
+        var start = parseDate(range.start);
+        var end = parseDate(range.end);
+        var today = todayUtcDate();
+        if (today < start) { return 0; }
+        if (today >= end) { return 100; }
+        var totalDays = dayDifference(start, end) + 1;
+        var completedDays = dayDifference(start, today) + 1;
+        return Math.round((completedDays / totalDays) * 1000) / 10;
+      }
+
+      function progressDescription(task, range) {
+        var percent = taskProgressPercent(range);
+        var today = formatDate(todayUtcDate());
+        if (currentLanguage === "en") {
+          return task.name + ": " + percent + "% complete as of " + today;
+        }
+        return task.name + "：截至 " + today + " 已完成 " + percent + "%";
+      }
+
+      function refreshProgressForNewDay() {
+        var today = formatDate(todayUtcDate());
+        if (today !== lastProgressDate) {
+          lastProgressDate = today;
+          render();
+        }
       }
 
       function addDays(date, amount) {
@@ -1296,27 +1333,30 @@
         row.dataset.taskId = task.id;
         if (task.type === "milestone") {
           var milestone = document.createElement("div");
-          milestone.className = "milestone";
+          var milestoneComplete = taskProgressPercent(range) >= 100;
+          milestone.className = "milestone" + (milestoneComplete ? " is-complete" : "");
           milestone.dataset.taskId = task.id;
           milestone.tabIndex = 0;
-          milestone.setAttribute("aria-label", task.name + " 里程碑");
+          milestone.setAttribute("aria-label", progressDescription(task, range));
+          milestone.title = progressDescription(task, range);
           milestone.style.left = (dayDifference(timelineStart, parseDate(range.start)) * DAY_WIDTH) + "px";
           row.appendChild(milestone);
         } else {
           var bar = document.createElement("div");
-          bar.className = "bar " + (task.type === "summary" ? "summary" : task.type);
+          var progressPercent = taskProgressPercent(range);
+          bar.className = "bar" + (task.type === "summary" ? " summary" : "");
           bar.dataset.taskId = task.id;
           bar.tabIndex = 0;
-          bar.title = task.name + "（拖动以整体调整日期）";
+          bar.title = progressDescription(task, range);
+          bar.setAttribute("aria-label", progressDescription(task, range));
           var left = dayDifference(timelineStart, parseDate(range.start)) * DAY_WIDTH;
           var width = (dayDifference(parseDate(range.start), parseDate(range.end)) + 1) * DAY_WIDTH;
           bar.style.left = left + "px";
           bar.style.width = Math.max(width, 8) + "px";
-          if (task.type === "summary") {
-            var progress = document.createElement("div");
-            progress.className = "summary-progress";
-            bar.appendChild(progress);
-          }
+          var progress = document.createElement("div");
+          progress.className = "bar-progress";
+          progress.style.width = progressPercent + "%";
+          bar.appendChild(progress);
           row.appendChild(bar);
         }
         row.addEventListener("click", function () {
@@ -1575,9 +1615,6 @@
           if (selected.parent) {
             actionMenu.appendChild(menuButton(tr("outdent"), function () { outdentTask(selected); }));
           }
-          if (selected.type !== "summary") {
-            actionMenu.appendChild(menuButton(tr("cycleColor"), function () { cycleColor(selected); }));
-          }
           actionMenu.appendChild(menuDivider());
           actionMenu.appendChild(menuButton(tr("deleteSelected"), function () { deleteSelected(selected); }, "danger"));
         }
@@ -1637,14 +1674,6 @@
             input.select();
           }
         });
-      }
-
-      function cycleColor(task) {
-        var colors = ["green", "yellow", "purple", "blue"];
-        var index = colors.indexOf(task.type);
-        task.type = colors[(index + 1) % colors.length];
-        saveTasks();
-        render();
       }
 
       function outdentTask(task) {
@@ -1863,6 +1892,8 @@
 
       setTableWidth(tableWidth, false);
       applyTranslations();
+      lastProgressDate = formatDate(todayUtcDate());
+      window.setInterval(refreshProgressForNewDay, 60000);
       render();
       updateHistoryButtons();
     }());

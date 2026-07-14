@@ -442,6 +442,23 @@
       background: #1765ad;
     }
 
+    .file-action.danger {
+      border-color: #dea7a4;
+      color: #b3261e;
+    }
+
+    .file-action.danger:hover, .file-action.danger:focus-visible {
+      border-color: #b3261e;
+      background: #fff1f0;
+    }
+
+    .file-action:disabled {
+      border-color: #dce1e6;
+      color: #98a1ab;
+      background: #f6f7f8;
+      cursor: not-allowed;
+    }
+
     .action-menu {
       position: fixed;
       z-index: 20;
@@ -541,6 +558,9 @@
 
   <aside class="corner-help" aria-label="使用提示">
     <span>直接点击名称或日期编辑 · 拖动任务条改日期 · <kbd>⋮</kbd> 管理任务</span>
+    <button class="file-action primary" id="addTaskButton" type="button">＋ 添加任务</button>
+    <button class="file-action" id="outdentTaskButton" type="button">减少层级</button>
+    <button class="file-action danger" id="deleteTaskButton" type="button">删除任务</button>
     <button class="file-action" id="loadFileButton" type="button">读取文件</button>
     <button class="file-action primary" id="saveFileButton" type="button">保存文件</button>
   </aside>
@@ -895,6 +915,13 @@
           timelineCanvas.appendChild(createTimelineRow(entry));
         });
         timelineCanvas.style.minHeight = Math.max(timelinePane.clientHeight, rows.length * 45) + "px";
+        updateTaskActionButtons();
+      }
+
+      function updateTaskActionButtons() {
+        var selected = findTask(selectedId);
+        document.getElementById("outdentTaskButton").disabled = !selected || !selected.parent;
+        document.getElementById("deleteTaskButton").disabled = !selected;
       }
 
       function makeTextEditor(task) {
@@ -1087,6 +1114,9 @@
           if (hasChildren(selected) || selected.type === "summary") {
             actionMenu.appendChild(menuButton("新建子任务", function () { addTask(selected.id, "task"); }));
           }
+          if (selected.parent) {
+            actionMenu.appendChild(menuButton("减少层级（提升一级）", function () { outdentTask(selected); }));
+          }
           if (selected.type !== "summary") {
             actionMenu.appendChild(menuButton("切换所选任务颜色", function () { cycleColor(selected); }));
           }
@@ -1159,6 +1189,18 @@
         task.type = colors[(index + 1) % colors.length];
         saveTasks();
         render();
+      }
+
+      function outdentTask(task) {
+        if (!task || !task.parent) {
+          showToast("所选任务已经在顶层。");
+          return;
+        }
+        var parent = findTask(task.parent);
+        task.parent = parent ? parent.parent : null;
+        saveTasks();
+        render();
+        showToast("已减少“" + task.name + "”的层级。");
       }
 
       function deleteSelected(task) {
@@ -1240,6 +1282,17 @@
 
       document.getElementById("saveFileButton").addEventListener("click", exportTasks);
       document.getElementById("loadFileButton").addEventListener("click", openProjectFile);
+      document.getElementById("addTaskButton").addEventListener("click", function () {
+        var selected = findTask(selectedId);
+        addTask(selected ? selected.parent : null, "task", selected ? selected.id : null);
+      });
+      document.getElementById("outdentTaskButton").addEventListener("click", function () {
+        outdentTask(findTask(selectedId));
+      });
+      document.getElementById("deleteTaskButton").addEventListener("click", function () {
+        var selected = findTask(selectedId);
+        if (selected) { deleteSelected(selected); }
+      });
 
       document.querySelectorAll("[data-quick]").forEach(function (button) {
         button.addEventListener("click", function () {

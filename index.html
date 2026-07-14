@@ -566,8 +566,8 @@
 
   <aside class="corner-help" aria-label="使用提示">
     <span>直接点击名称或日期编辑 · 拖动任务条改日期 · <kbd>⋮</kbd> 管理任务</span>
-    <button class="file-action" id="moveUpButton" type="button">↑ 上移</button>
-    <button class="file-action" id="moveDownButton" type="button">↓ 下移</button>
+    <button class="file-action" id="moveUpButton" type="button">↑ 上移一行</button>
+    <button class="file-action" id="moveDownButton" type="button">↓ 下移一行</button>
     <button class="file-action primary" id="addTaskButton" type="button">＋ 添加任务</button>
     <button class="file-action" id="outdentTaskButton" type="button">减少层级</button>
     <button class="file-action danger" id="deleteTaskButton" type="button">删除任务</button>
@@ -928,12 +928,24 @@
 
       function updateTaskActionButtons() {
         var selected = findTask(selectedId);
-        var siblings = selected ? childrenOf(selected.parent) : [];
-        var position = selected ? siblings.findIndex(function (task) { return task.id === selected.id; }) : -1;
-        document.getElementById("moveUpButton").disabled = position <= 0;
-        document.getElementById("moveDownButton").disabled = position < 0 || position >= siblings.length - 1;
+        document.getElementById("moveUpButton").disabled = !selected || !visibleMoveTarget(selected, "up");
+        document.getElementById("moveDownButton").disabled = !selected || !visibleMoveTarget(selected, "down");
         document.getElementById("outdentTaskButton").disabled = !selected || !selected.parent;
         document.getElementById("deleteTaskButton").disabled = !selected;
+      }
+
+      function visibleMoveTarget(task, direction) {
+        var rows = visibleRows();
+        var position = rows.findIndex(function (entry) { return entry.task.id === task.id; });
+        if (position < 0) { return null; }
+        if (direction === "up") {
+          return position > 0 ? rows[position - 1].task : null;
+        }
+        var ownIds = new Set([task.id].concat(descendantsOf(task.id).map(function (item) { return item.id; })));
+        for (var index = position + 1; index < rows.length; index += 1) {
+          if (!ownIds.has(rows[index].task.id)) { return rows[index].task; }
+        }
+        return null;
       }
 
       function makeTextEditor(task) {
@@ -1126,8 +1138,8 @@
           if (hasChildren(selected) || selected.type === "summary") {
             actionMenu.appendChild(menuButton("新建子任务", function () { addTask(selected.id, "task"); }));
           }
-          actionMenu.appendChild(menuButton("上移任务", function () { moveTask(selected, "up"); }));
-          actionMenu.appendChild(menuButton("下移任务", function () { moveTask(selected, "down"); }));
+          actionMenu.appendChild(menuButton("上移一行", function () { moveTask(selected, "up"); }));
+          actionMenu.appendChild(menuButton("下移一行", function () { moveTask(selected, "down"); }));
           if (selected.parent) {
             actionMenu.appendChild(menuButton("减少层级（提升一级）", function () { outdentTask(selected); }));
           }
@@ -1222,28 +1234,30 @@
           showToast("请先选择一个任务。");
           return;
         }
-        var siblings = childrenOf(task.parent);
-        var siblingIndex = siblings.findIndex(function (item) { return item.id === task.id; });
-        var targetIndex = direction === "up" ? siblingIndex - 1 : siblingIndex + 1;
-        if (siblingIndex < 0 || targetIndex < 0 || targetIndex >= siblings.length) {
+        var neighbor = visibleMoveTarget(task, direction);
+        if (!neighbor) {
           showToast(direction === "up" ? "该任务已经排在最前。" : "该任务已经排在最后。");
           return;
         }
 
-        var neighbor = siblings[targetIndex];
         var movingIds = new Set([task.id].concat(descendantsOf(task.id).map(function (item) { return item.id; })));
         var movingBlock = tasks.filter(function (item) { return movingIds.has(item.id); });
         var remaining = tasks.filter(function (item) { return !movingIds.has(item.id); });
         var insertAt;
 
         if (direction === "up") {
+          task.parent = neighbor.parent;
           insertAt = remaining.findIndex(function (item) { return item.id === neighbor.id; });
         } else {
-          var neighborIds = new Set([neighbor.id].concat(descendantsOf(neighbor.id).map(function (item) { return item.id; })));
-          insertAt = 0;
-          remaining.forEach(function (item, index) {
-            if (neighborIds.has(item.id)) { insertAt = index + 1; }
-          });
+          var neighborChildren = childrenOf(neighbor.id).filter(function (item) { return !movingIds.has(item.id); });
+          if (neighborChildren.length && !collapsedIds.has(neighbor.id)) {
+            task.parent = neighbor.id;
+            collapsedIds.delete(neighbor.id);
+            insertAt = remaining.findIndex(function (item) { return item.id === neighborChildren[0].id; });
+          } else {
+            task.parent = neighbor.parent;
+            insertAt = remaining.findIndex(function (item) { return item.id === neighbor.id; }) + 1;
+          }
         }
 
         if (insertAt < 0) {
@@ -1253,7 +1267,7 @@
         tasks = remaining.slice(0, insertAt).concat(movingBlock, remaining.slice(insertAt));
         saveTasks();
         render();
-        showToast("已" + (direction === "up" ? "上移" : "下移") + "“" + task.name + "”。");
+        showToast("已" + (direction === "up" ? "上移" : "下移") + "一行：“" + task.name + "”。");
       }
 
       function deleteSelected(task) {

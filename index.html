@@ -223,7 +223,7 @@
     .task-pane {
       min-width: var(--left-width);
       height: 100%;
-      padding-bottom: 78px;
+      padding-bottom: 112px;
       overflow-y: auto;
       overflow-x: hidden;
       border-right: 2px solid #e1e5ea;
@@ -774,11 +774,11 @@
       bottom: 0;
       z-index: 32;
       display: flex;
-      gap: 14px;
+      gap: 20px;
       align-items: center;
       width: var(--left-width);
-      min-height: 70px;
-      padding: 10px 16px;
+      min-height: 96px;
+      padding: 14px 20px;
       border-top: 1px solid #d8dfe6;
       border-right: 2px solid #d8dfe6;
       background: rgba(255,255,255,.97);
@@ -790,21 +790,21 @@
       display: flex;
       flex: 0 0 auto;
       flex-direction: column;
-      gap: 4px;
-      font-size: 12px;
+      gap: 6px;
+      font-size: 15px;
       font-weight: 700;
     }
 
     .final-date-input {
-      width: 142px;
-      height: 29px;
-      padding: 4px 8px;
+      width: 180px;
+      height: 40px;
+      padding: 6px 10px;
       border: 1px solid #aebbc8;
       border-radius: 4px;
       color: #182b3c;
       background: #fff;
       font: inherit;
-      font-size: 13px;
+      font-size: 17px;
       cursor: pointer;
     }
 
@@ -816,14 +816,14 @@
 
     .final-counts {
       display: flex;
-      gap: 6px;
+      gap: 8px;
       align-items: baseline;
       padding-left: 2px;
-      font-size: 13px;
+      font-size: 15px;
       white-space: nowrap;
     }
 
-    .final-counts strong { color: #176d35; font-size: 18px; }
+    .final-counts strong { color: #c62828; font-size: 26px; }
     .final-counts .count-separator { color: #99a5b0; padding: 0 2px; }
 
     .date-picker {
@@ -871,7 +871,7 @@
     .date-picker-day.is-selected { color: #fff; background: #287bc8; }
 
     @media (max-width: 1180px) {
-      .final-date-panel { flex-wrap: wrap; gap: 8px 13px; min-height: 78px; }
+      .final-date-panel { flex-wrap: wrap; gap: 10px 16px; min-height: 108px; }
     }
 
     @media (max-width: 1200px) {

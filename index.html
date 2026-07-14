@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>鍙紪杈戠敇鐗瑰浘</title>
+  <title>可编辑甘特图</title>
   <style>
     :root {
       --row-height: 45px;
@@ -844,7 +844,1136 @@
       .final-date-panel { flex-wrap: wrap; gap: 8px 13px; min-height: 78px; }
     }
 
-    @media (max-width: 1200px)…12718 tokens truncated…       task[field] = nextValue;
+    @media (max-width: 1200px) {
+      :root { --left-width: 780px; }
+      .task-header, .task-row { grid-template-columns: minmax(280px, 1fr) 120px 120px 104px 116px; }
+      .task-cell { font-size: 14px; padding-left: 9px; padding-right: 9px; }
+      .column-header { font-size: 14px; padding-right: 8px; padding-left: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="gantt-app" aria-label="可编辑甘特图">
+    <section class="project-row" aria-label="项目名称">
+      <div class="project-row-left">
+        <label class="project-name-label" for="projectName"><span id="projectLabel">Project：</span>
+          <input class="project-name-input" id="projectName" type="text" placeholder="填写项目名称" autocomplete="off">
+        </label>
+        <button class="file-action" id="newGanttButton" type="button">新建甘特图</button>
+      </div>
+      <div class="project-row-right">
+        <aside class="project-actions" aria-label="Project file actions">
+          <button class="file-action" id="undoButton" type="button" disabled>撤销</button>
+          <button class="file-action" id="redoButton" type="button" disabled>还原</button>
+          <button class="file-action primary" id="saveButton" type="button">保存</button>
+          <button class="file-action" id="saveProjectButton" type="button">导出 JSON</button>
+          <button class="file-action" id="loadProjectButton" type="button">读取项目文件（JSON）</button>
+          <label class="language-picker" for="languageSelect"><span id="languageLabel">语言</span>
+            <select id="languageSelect" aria-label="Language">
+              <option value="zh-CN">简中</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+        </aside>
+      </div>
+    </section>
+    <aside class="corner-help" aria-label="管理任务">
+      <button class="file-action" id="moveUpButton" type="button">↑ 上移一行</button>
+      <button class="file-action" id="moveDownButton" type="button">↓ 下移一行</button>
+      <button class="file-action primary" id="addTaskButton" type="button">＋ 添加任务</button>
+      <button class="file-action" id="outdentTaskButton" type="button">减少层级</button>
+      <button class="file-action danger" id="deleteTaskButton" type="button">删除任务</button>
+    </aside>
+    <section class="gantt-header" aria-label="甘特图表头">
+      <div class="task-header">
+        <div class="column-header"><span>Task Name</span><button class="header-menu" id="mainMenuButton" aria-label="打开编辑菜单">⋮</button></div>
+        <div class="column-header"><span>Start</span><button class="header-menu" data-quick="zoomOut" aria-label="缩小时间轴">⋮</button></div>
+        <div class="column-header"><span>End</span><button class="header-menu" data-quick="zoomIn" aria-label="放大时间轴">⋮</button></div>
+        <div class="column-header"><span>Duration</span></div>
+        <div class="column-header"><span>Weeks</span></div>
+      </div>
+      <div class="timeline-header-viewport" id="timelineHeaderViewport">
+        <div class="timeline-header-inner" id="timelineHeaderInner">
+          <div class="months" id="months"></div>
+          <div class="weeks" id="weeks"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="gantt-content">
+      <div class="task-pane" id="taskPane" aria-label="任务表">
+        <div id="taskRows"></div>
+      </div>
+      <div class="timeline-pane" id="timelinePane" aria-label="时间轴">
+        <div class="timeline-canvas" id="timelineCanvas"></div>
+      </div>
+    </section>
+    <div class="pane-resizer" id="paneResizer" role="separator" aria-label="调整任务表宽度" aria-orientation="vertical" tabindex="0"></div>
+  </main>
+
+  <div class="action-menu" id="actionMenu" hidden></div>
+  <aside class="today-indicator" id="todayIndicator" aria-label="当前日期与进度图例">
+    <span class="progress-legend-item"><i class="progress-swatch done"></i><span id="completedLabel">已完成</span></span>
+    <span class="progress-legend-item"><i class="progress-swatch remaining"></i><span id="remainingLabel">剩余</span></span>
+    <strong class="today-date" id="todayDate">今天：2026-07-14</strong>
+  </aside>
+  <aside class="final-date-panel" id="finalDatePanel" aria-label="最终演示日期">
+    <label class="final-date-label" for="finalPresentationDate"><span id="finalPresentationLabel">最终演示日期</span>
+      <input class="final-date-input" id="finalPresentationDate" type="text" value="2026-08-07" readonly aria-haspopup="dialog">
+    </label>
+    <div class="final-counts" aria-live="polite">
+      <span id="finalRemainingLabel">剩余</span>
+      <strong id="finalRemainingDays">0</strong><span id="finalDaysUnit">天</span>
+      <span class="count-separator">·</span>
+      <strong id="finalRemainingWeeks">0</strong><span id="finalWeeksUnit">周</span>
+    </div>
+  </aside>
+  <div class="date-picker" id="datePicker" role="dialog" aria-modal="false" aria-label="选择日期" hidden>
+    <div class="date-picker-header">
+      <button class="date-picker-nav" id="datePickerPrevious" type="button" aria-label="上一个月">‹</button>
+      <strong class="date-picker-title" id="datePickerTitle"></strong>
+      <button class="date-picker-nav" id="datePickerNext" type="button" aria-label="下一个月">›</button>
+    </div>
+    <div class="date-picker-weekdays" id="datePickerWeekdays"></div>
+    <div class="date-picker-days" id="datePickerDays"></div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <input class="hidden-input" type="file" id="importInput" accept="application/json,.json">
+
+  <script>
+    (function () {
+      "use strict";
+
+      var DAY = 86400000;
+      var STORAGE_KEY = "editable-gantt-reference-v1";
+      var LANGUAGE_KEY = "editable-gantt-language-v1";
+      var TABLE_WIDTH_KEY = "editable-gantt-table-width-v1";
+      var FINAL_DATE_KEY = "editable-gantt-final-presentation-date-v1";
+      var PROJECT_NAME_KEY = "editable-gantt-project-name-v1";
+      var MAX_HISTORY_STEPS = 80;
+      var MIN_TABLE_WIDTH = 780;
+      var MIN_TIMELINE_WIDTH = 280;
+      var DAY_WIDTH = 8.5;
+      var timelineStart = parseDate("2026-04-20");
+      var timelineEnd = parseDate("2026-08-16");
+      var selectedId = null;
+      var collapsedIds = new Set();
+      var menuOpen = false;
+      var dragState = null;
+      var resizeState = null;
+      var datePickerState = null;
+      var lastProgressDate = "";
+      var scrollLock = false;
+      var toastTimer = null;
+      var undoStack = [];
+      var redoStack = [];
+      var lastSavedSnapshot = "";
+      var currentLanguage = loadLanguage();
+
+      var taskRowsElement = document.getElementById("taskRows");
+      var timelineCanvas = document.getElementById("timelineCanvas");
+      var timelinePane = document.getElementById("timelinePane");
+      var taskPane = document.getElementById("taskPane");
+      var timelineHeaderInner = document.getElementById("timelineHeaderInner");
+      var paneResizer = document.getElementById("paneResizer");
+      var actionMenu = document.getElementById("actionMenu");
+      var importInput = document.getElementById("importInput");
+      var languageSelect = document.getElementById("languageSelect");
+      var projectNameInput = document.getElementById("projectName");
+      var finalPresentationInput = document.getElementById("finalPresentationDate");
+      var datePicker = document.getElementById("datePicker");
+      var datePickerTitle = document.getElementById("datePickerTitle");
+      var datePickerWeekdays = document.getElementById("datePickerWeekdays");
+      var datePickerDays = document.getElementById("datePickerDays");
+      var tableWidth = loadTableWidth();
+
+      var defaults = [
+        { id: "system", name: "System integration", start: "2026-04-27", end: "2026-08-07", type: "summary", parent: null },
+        { id: "ideal", name: "Ideal model", start: "2026-04-27", end: "2026-05-01", type: "green", parent: "system" },
+        { id: "transistor", name: "Transistor level replacement", start: "2026-05-04", end: "2026-06-26", type: "summary", parent: "system" },
+        { id: "switch", name: "Switch", start: "2026-05-04", end: "2026-05-08", type: "green", parent: "transistor" },
+        { id: "amp", name: "Amp replacement", start: "2026-05-11", end: "2026-05-29", type: "yellow", parent: "transistor" },
+        { id: "aaf", name: "AAF replacement", start: "2026-06-01", end: "2026-06-12", type: "yellow", parent: "transistor" },
+        { id: "adc", name: "ADC replacement", start: "2026-06-15", end: "2026-06-26", type: "yellow", parent: "transistor" },
+        { id: "digital", name: "Digital processing", start: "2026-06-29", end: "2026-07-10", type: "yellow", parent: "system" },
+        { id: "report", name: "Final report writing", start: "2026-06-29", end: "2026-07-24", type: "yellow", parent: "system" },
+        { id: "layout", name: "Layout and Post-layout simulation", start: "2026-07-13", end: "2026-08-07", type: "yellow", parent: "system" },
+        { id: "handin", name: "Final report hand-in", start: "2026-07-24", end: "2026-07-24", type: "milestone", parent: "system" },
+        { id: "subsystem", name: "Subsystem improvement", start: "2026-07-13", end: "2026-08-07", type: "yellow", parent: null }
+      ];
+
+      var translations = {
+        "zh-CN": {
+          pageTitle: "可编辑甘特图",
+          appLabel: "可编辑甘特图",
+          taskName: "任务名称",
+          start: "开始",
+          end: "结束",
+          duration: "工期",
+          weeks: "周数",
+          weekUnit: "周",
+          durationHint: "根据开始和结束日期自动计算（含起止日，不含周末）",
+          weeksHint: "每 5 个工作日计算为 1 周",
+          resizePanels: "拖动调整任务表与甘特图区宽度",
+          taskTable: "任务表",
+          timeline: "时间轴",
+          manageTasks: "管理任务",
+          zoomOut: "缩小时间轴",
+          zoomIn: "放大时间轴",
+          moveUp: "↑ 上移一行",
+          moveDown: "↓ 下移一行",
+          addTask: "+ 添加任务",
+          outdent: "减少层级",
+          deleteTask: "删除任务",
+          undo: "撤销",
+          redo: "还原",
+          save: "保存",
+          saveFile: "导出 JSON",
+          loadFile: "读取项目文件（JSON）",
+          language: "语言",
+          projectActions: "项目文件操作",
+          project: "项目：",
+          projectNamePlaceholder: "填写项目名称",
+          newGantt: "新建甘特图",
+          newGanttConfirm: "新建空白甘特图？当前项目数据将被替换。",
+          newGanttCreated: "已新建空白甘特图，请添加并编辑任务。",
+          progressLegend: "当前日期与进度图例",
+          completed: "已完成",
+          remaining: "剩余",
+          today: "今天",
+          finalPresentation: "最终演示日期",
+          chooseDate: "选择日期",
+          previousMonth: "上一个月",
+          nextMonth: "下一个月",
+          days: "天",
+          editTaskName: "编辑任务名称",
+          editSummaryDate: "编辑汇总日期（之后不再随子任务自动变化）",
+          editDate: "编辑日期",
+          collapseChildren: "折叠子任务",
+          expandChildren: "展开子任务",
+          selected: "已选择：",
+          projectOperations: "项目操作",
+          newTopTask: "新建顶层任务",
+          newSiblingTask: "在所选任务后新建同级任务",
+          newMilestone: "新建里程碑",
+          newChildTask: "新建子任务",
+          moveUpMenu: "上移一行",
+          moveDownMenu: "下移一行",
+          cycleColor: "切换所选任务颜色",
+          deleteSelected: "删除所选任务",
+          expandAll: "展开全部任务",
+          collapseAll: "折叠全部汇总任务",
+          resetExample: "恢复截图示例数据",
+          nothingToUndo: "没有可撤销的操作。",
+          nothingToRedo: "没有可还原的操作。",
+          undone: "已撤销上一步操作。",
+          redone: "已还原上一步操作。",
+          fileSaved: "JSON 文件已导出。",
+          projectSaved: "项目已保存到当前浏览器。",
+          languageChanged: "已切换为简中界面。",
+          newTaskName: "新任务",
+          newMilestoneName: "新里程碑"
+        },
+        en: {
+          pageTitle: "Editable Gantt Chart",
+          appLabel: "Editable Gantt Chart",
+          taskName: "Task Name",
+          start: "Start",
+          end: "End",
+          duration: "Duration",
+          weeks: "Weeks",
+          weekUnit: "week",
+          durationHint: "Calculated from Start and End (inclusive, excluding weekends)",
+          weeksHint: "Calculated as 1 week for every 5 working days",
+          resizePanels: "Drag to resize the task table and Gantt chart",
+          taskTable: "Task table",
+          timeline: "Timeline",
+          manageTasks: "Manage tasks",
+          zoomOut: "Zoom out timeline",
+          zoomIn: "Zoom in timeline",
+          moveUp: "↑ Move up one row",
+          moveDown: "↓ Move down one row",
+          addTask: "+ Add task",
+          outdent: "Reduce level",
+          deleteTask: "Delete task",
+          undo: "Undo",
+          redo: "Redo",
+          save: "Save",
+          saveFile: "Export JSON",
+          loadFile: "Load JSON",
+          language: "Language",
+          projectActions: "Project file actions",
+          project: "Project:",
+          projectNamePlaceholder: "Enter project name",
+          newGantt: "New Gantt",
+          newGanttConfirm: "Create a blank Gantt chart? The current project data will be replaced.",
+          newGanttCreated: "Created a blank Gantt chart. Add and edit tasks to begin.",
+          progressLegend: "Current date and progress legend",
+          completed: "Completed",
+          remaining: "Remaining",
+          today: "Today",
+          finalPresentation: "Final presentation date",
+          chooseDate: "Choose date",
+          previousMonth: "Previous month",
+          nextMonth: "Next month",
+          days: "days",
+          editTaskName: "Edit task name",
+          editSummaryDate: "Edit summary date (it will no longer follow child tasks automatically)",
+          editDate: "Edit date",
+          collapseChildren: "Collapse child tasks",
+          expandChildren: "Expand child tasks",
+          selected: "Selected: ",
+          projectOperations: "Project actions",
+          newTopTask: "New top-level task",
+          newSiblingTask: "New sibling task after selected task",
+          newMilestone: "New milestone",
+          newChildTask: "New child task",
+          moveUpMenu: "Move up one row",
+          moveDownMenu: "Move down one row",
+          cycleColor: "Change selected task color",
+          deleteSelected: "Delete selected task",
+          expandAll: "Expand all tasks",
+          collapseAll: "Collapse all summary tasks",
+          resetExample: "Restore screenshot example data",
+          nothingToUndo: "There is nothing to undo.",
+          nothingToRedo: "There is nothing to redo.",
+          undone: "Undid the previous change.",
+          redone: "Redid the previous change.",
+          fileSaved: "JSON file exported.",
+          projectSaved: "Project saved in this browser.",
+          languageChanged: "Switched to English.",
+          newTaskName: "New task",
+          newMilestoneName: "New milestone"
+        }
+      };
+
+      var tasks = loadTasks();
+      lastSavedSnapshot = JSON.stringify(tasks);
+      var projectName = loadProjectName();
+      var finalPresentationDate = loadFinalPresentationDate();
+
+      function parseDate(value) {
+        var parts = String(value).split("-").map(Number);
+        return new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+      }
+
+      function formatDate(date) {
+        return date.toISOString().slice(0, 10);
+      }
+
+      function todayUtcDate() {
+        var now = new Date();
+        return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+      }
+
+      function updateTodayIndicator() {
+        document.getElementById("todayIndicator").setAttribute("aria-label", tr("progressLegend"));
+        document.getElementById("completedLabel").textContent = tr("completed");
+        document.getElementById("remainingLabel").textContent = tr("remaining");
+        document.getElementById("todayDate").textContent = tr("today") +
+          (currentLanguage === "en" ? ": " : "：") + formatDate(todayUtcDate());
+      }
+
+      function taskProgressPercent(range) {
+        var start = parseDate(range.start);
+        var end = parseDate(range.end);
+        var today = todayUtcDate();
+        if (today < start) { return 0; }
+        if (today >= end) { return 100; }
+        var totalDays = dayDifference(start, end) + 1;
+        var completedDays = dayDifference(start, today) + 1;
+        return Math.round((completedDays / totalDays) * 1000) / 10;
+      }
+
+      function progressDescription(task, range) {
+        var percent = taskProgressPercent(range);
+        var today = formatDate(todayUtcDate());
+        if (currentLanguage === "en") {
+          return task.name + ": " + percent + "% complete as of " + today;
+        }
+        return task.name + "：截至 " + today + " 已完成 " + percent + "%";
+      }
+
+      function refreshProgressForNewDay() {
+        var today = formatDate(todayUtcDate());
+        if (today !== lastProgressDate) {
+          lastProgressDate = today;
+          updateTodayIndicator();
+          updateFinalPresentationPanel();
+          render();
+        }
+      }
+
+      function addDays(date, amount) {
+        var result = new Date(date.getTime());
+        result.setUTCDate(result.getUTCDate() + amount);
+        return result;
+      }
+
+      function dayDifference(first, second) {
+        return Math.round((second.getTime() - first.getTime()) / DAY);
+      }
+
+      function isWorkday(date) {
+        var weekday = date.getUTCDay();
+        return weekday !== 0 && weekday !== 6;
+      }
+
+      function workdayCount(start, end) {
+        var cursor = parseDate(start);
+        var finalDate = parseDate(end);
+        var amount = 0;
+        while (cursor <= finalDate) {
+          if (isWorkday(cursor)) { amount += 1; }
+          cursor = addDays(cursor, 1);
+        }
+        return amount;
+      }
+
+      function durationText(task, range) {
+        if (task.type === "milestone") { return "0 " + tr("days"); }
+        return workdayCount(range.start, range.end) + " " + tr("days");
+      }
+
+      function workWeekCount(task, range) {
+        if (task.type === "milestone") { return 0; }
+        return Math.ceil(workdayCount(range.start, range.end) / 5);
+      }
+
+      function weekText(task, range) {
+        var amount = workWeekCount(task, range);
+        var unit = currentLanguage === "en" && amount !== 1 ? "weeks" : tr("weekUnit");
+        return amount + " " + unit;
+      }
+
+      function copyDefaults() {
+        return JSON.parse(JSON.stringify(defaults));
+      }
+
+      function loadLanguage() {
+        try {
+          return localStorage.getItem(LANGUAGE_KEY) === "en" ? "en" : "zh-CN";
+        } catch (error) {
+          return "zh-CN";
+        }
+      }
+
+      function loadProjectName() {
+        try { return localStorage.getItem(PROJECT_NAME_KEY) || ""; }
+        catch (error) { return ""; }
+      }
+
+      function setProjectName(nextName) {
+        projectName = String(nextName || "").trim();
+        projectNameInput.value = projectName;
+        try { localStorage.setItem(PROJECT_NAME_KEY, projectName); } catch (error) { /* Storage is optional. */ }
+      }
+
+      function updateProjectRow() {
+        document.querySelector(".project-row").setAttribute("aria-label", tr("project"));
+        document.getElementById("projectLabel").textContent = tr("project");
+        projectNameInput.placeholder = tr("projectNamePlaceholder");
+        projectNameInput.value = projectName;
+        document.getElementById("newGanttButton").textContent = tr("newGantt");
+      }
+
+      function loadTableWidth() {
+        try {
+          var storedWidth = Number(localStorage.getItem(TABLE_WIDTH_KEY));
+          if (Number.isFinite(storedWidth) && storedWidth >= MIN_TABLE_WIDTH) { return storedWidth; }
+        } catch (error) {
+          // Storage is optional; the default width still works.
+        }
+        return 910;
+      }
+
+      function isValidDateValue(value) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value))) { return false; }
+        return formatDate(parseDate(value)) === value;
+      }
+
+      function latestProjectDate() {
+        if (!tasks.length) { return formatDate(todayUtcDate()); }
+        return tasks.map(function (task) { return displayRange(task).end; }).sort().slice(-1)[0];
+      }
+
+      function loadFinalPresentationDate() {
+        try {
+          var storedDate = localStorage.getItem(FINAL_DATE_KEY);
+          if (isValidDateValue(storedDate)) { return storedDate; }
+        } catch (error) {
+          // Storage is optional; use the latest project date instead.
+        }
+        return latestProjectDate();
+      }
+
+      function saveFinalPresentationDate() {
+        try { localStorage.setItem(FINAL_DATE_KEY, finalPresentationDate); } catch (error) { /* Storage is optional. */ }
+      }
+
+      function finalDateUnit(amount, singular, plural) {
+        if (currentLanguage !== "en") { return singular === "day" ? tr("days") : tr("weekUnit"); }
+        return amount === 1 ? singular : plural;
+      }
+
+      function updateFinalPresentationPanel() {
+        var remainingDays = Math.max(0, dayDifference(todayUtcDate(), parseDate(finalPresentationDate)));
+        var remainingWeeks = Math.ceil(remainingDays / 5);
+        document.getElementById("finalDatePanel").setAttribute("aria-label", tr("finalPresentation"));
+        document.getElementById("finalPresentationLabel").textContent = tr("finalPresentation");
+        finalPresentationInput.value = finalPresentationDate;
+        finalPresentationInput.title = tr("chooseDate");
+        document.getElementById("finalRemainingLabel").textContent = tr("remaining");
+        document.getElementById("finalRemainingDays").textContent = String(remainingDays);
+        document.getElementById("finalDaysUnit").textContent = finalDateUnit(remainingDays, "day", "days");
+        document.getElementById("finalRemainingWeeks").textContent = String(remainingWeeks);
+        document.getElementById("finalWeeksUnit").textContent = finalDateUnit(remainingWeeks, "week", "weeks");
+      }
+
+      function setFinalPresentationDate(nextDate) {
+        if (!isValidDateValue(nextDate)) { return; }
+        finalPresentationDate = nextDate;
+        saveFinalPresentationDate();
+        updateFinalPresentationPanel();
+      }
+
+      function datePickerWeekdayLabels() {
+        return currentLanguage === "en" ?
+          ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] :
+          ["一", "二", "三", "四", "五", "六", "日"];
+      }
+
+      function hideDatePicker() {
+        datePicker.hidden = true;
+        datePickerState = null;
+      }
+
+      function positionDatePicker(anchor) {
+        var box = anchor.getBoundingClientRect();
+        var left = Math.max(8, Math.min(window.innerWidth - datePicker.offsetWidth - 8, box.left));
+        var top = box.bottom + 6;
+        if (top + datePicker.offsetHeight > window.innerHeight - 8) {
+          top = Math.max(8, box.top - datePicker.offsetHeight - 6);
+        }
+        datePicker.style.left = left + "px";
+        datePicker.style.top = top + "px";
+      }
+
+      function renderDatePicker() {
+        if (!datePickerState) { return; }
+        var view = datePickerState.view;
+        var selectedDate = datePickerState.selected;
+        var formatter = new Intl.DateTimeFormat(currentLanguage === "en" ? "en-US" : "zh-CN", {
+          year: "numeric", month: "long", timeZone: "UTC"
+        });
+        datePickerTitle.textContent = formatter.format(view);
+        datePicker.setAttribute("aria-label", tr("chooseDate"));
+        document.getElementById("datePickerPrevious").setAttribute("aria-label", tr("previousMonth"));
+        document.getElementById("datePickerNext").setAttribute("aria-label", tr("nextMonth"));
+        datePickerWeekdays.replaceChildren();
+        datePickerWeekdayLabels().forEach(function (label) {
+          var weekday = document.createElement("span");
+          weekday.className = "date-picker-weekday";
+          weekday.textContent = label;
+          datePickerWeekdays.appendChild(weekday);
+        });
+        datePickerDays.replaceChildren();
+        var firstDay = new Date(Date.UTC(view.getUTCFullYear(), view.getUTCMonth(), 1));
+        var offset = (firstDay.getUTCDay() + 6) % 7;
+        var gridStart = addDays(firstDay, -offset);
+        var today = formatDate(todayUtcDate());
+        for (var index = 0; index < 42; index += 1) {
+          (function (date) {
+            var dateValue = formatDate(date);
+            var dayButton = document.createElement("button");
+            dayButton.type = "button";
+            dayButton.className = "date-picker-day" +
+              (date.getUTCMonth() !== view.getUTCMonth() ? " is-outside" : "") +
+              (dateValue === today ? " is-today" : "") +
+              (dateValue === selectedDate ? " is-selected" : "");
+            dayButton.textContent = String(date.getUTCDate());
+            dayButton.setAttribute("aria-label", dateValue);
+            dayButton.addEventListener("click", function (event) {
+              event.stopPropagation();
+              var selectDate = dateValue;
+              var callback = datePickerState && datePickerState.onSelect;
+              hideDatePicker();
+              if (callback) { callback(selectDate); }
+            });
+            datePickerDays.appendChild(dayButton);
+          }(addDays(gridStart, index)));
+        }
+        positionDatePicker(datePickerState.anchor);
+      }
+
+      function openDatePicker(anchor, selectedDate, onSelect) {
+        var selected = isValidDateValue(selectedDate) ? selectedDate : formatDate(todayUtcDate());
+        var selectedObject = parseDate(selected);
+        datePickerState = {
+          anchor: anchor,
+          selected: selected,
+          view: new Date(Date.UTC(selectedObject.getUTCFullYear(), selectedObject.getUTCMonth(), 1)),
+          onSelect: onSelect
+        };
+        datePicker.hidden = false;
+        renderDatePicker();
+      }
+
+      function changeDatePickerMonth(amount) {
+        if (!datePickerState) { return; }
+        var view = datePickerState.view;
+        datePickerState.view = new Date(Date.UTC(view.getUTCFullYear(), view.getUTCMonth() + amount, 1));
+        renderDatePicker();
+      }
+
+      function maximumTableWidth() {
+        return Math.max(MIN_TABLE_WIDTH, window.innerWidth - MIN_TIMELINE_WIDTH);
+      }
+
+      function setTableWidth(nextWidth, persist) {
+        tableWidth = Math.round(Math.max(MIN_TABLE_WIDTH, Math.min(maximumTableWidth(), nextWidth)));
+        document.documentElement.style.setProperty("--left-width", tableWidth + "px");
+        document.querySelector(".gantt-app").classList.toggle("is-table-compact", tableWidth < 840);
+        paneResizer.setAttribute("aria-valuemin", String(MIN_TABLE_WIDTH));
+        paneResizer.setAttribute("aria-valuemax", String(maximumTableWidth()));
+        paneResizer.setAttribute("aria-valuenow", String(tableWidth));
+        if (persist) {
+          try { localStorage.setItem(TABLE_WIDTH_KEY, String(tableWidth)); } catch (error) { /* Storage is optional. */ }
+        }
+      }
+
+      function startTableResize(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        resizeState = { startX: event.clientX, startWidth: tableWidth };
+        paneResizer.setPointerCapture(event.pointerId);
+        document.body.classList.add("is-resizing");
+      }
+
+      function moveTableResize(event) {
+        if (!resizeState) { return; }
+        setTableWidth(resizeState.startWidth + event.clientX - resizeState.startX, false);
+      }
+
+      function endTableResize() {
+        if (!resizeState) { return; }
+        resizeState = null;
+        document.body.classList.remove("is-resizing");
+        setTableWidth(tableWidth, true);
+      }
+
+      function tr(key) {
+        return (translations[currentLanguage] && translations[currentLanguage][key]) ||
+          translations["zh-CN"][key] || key;
+      }
+
+      function applyTranslations() {
+        var headers = document.querySelectorAll(".column-header span");
+        var values = [tr("taskName"), tr("start"), tr("end"), tr("duration"), tr("weeks")];
+        document.documentElement.lang = currentLanguage === "en" ? "en" : "zh-CN";
+        document.title = tr("pageTitle");
+        document.querySelector(".gantt-app").setAttribute("aria-label", tr("appLabel"));
+        document.querySelector(".gantt-header").setAttribute("aria-label", tr("timeline"));
+        updateProjectRow();
+        taskPane.setAttribute("aria-label", tr("taskTable"));
+        timelinePane.setAttribute("aria-label", tr("timeline"));
+        headers.forEach(function (header, index) { header.textContent = values[index]; });
+        document.getElementById("mainMenuButton").setAttribute("aria-label", tr("manageTasks"));
+        document.querySelector('[data-quick="zoomOut"]').setAttribute("aria-label", tr("zoomOut"));
+        document.querySelector('[data-quick="zoomIn"]').setAttribute("aria-label", tr("zoomIn"));
+        document.querySelector(".corner-help").setAttribute("aria-label", tr("manageTasks"));
+        document.getElementById("moveUpButton").textContent = tr("moveUp");
+        document.getElementById("moveDownButton").textContent = tr("moveDown");
+        document.getElementById("addTaskButton").textContent = tr("addTask");
+        document.getElementById("outdentTaskButton").textContent = tr("outdent");
+        document.getElementById("deleteTaskButton").textContent = tr("deleteTask");
+        document.querySelector(".project-actions").setAttribute("aria-label", tr("projectActions"));
+        paneResizer.setAttribute("aria-label", tr("resizePanels"));
+        document.getElementById("undoButton").textContent = tr("undo");
+        document.getElementById("redoButton").textContent = tr("redo");
+        document.getElementById("saveButton").textContent = tr("save");
+        document.getElementById("saveProjectButton").textContent = tr("saveFile");
+        document.getElementById("loadProjectButton").textContent = tr("loadFile");
+        document.getElementById("languageLabel").textContent = tr("language");
+        languageSelect.setAttribute("aria-label", tr("language"));
+        languageSelect.value = currentLanguage;
+        updateTodayIndicator();
+        updateFinalPresentationPanel();
+      }
+
+      function setLanguage(language) {
+        currentLanguage = language === "en" ? "en" : "zh-CN";
+        try { localStorage.setItem(LANGUAGE_KEY, currentLanguage); } catch (error) { /* Storage is optional. */ }
+        applyTranslations();
+        render();
+        showToast(tr("languageChanged"));
+      }
+
+      function loadTasks() {
+        try {
+          var stored = localStorage.getItem(STORAGE_KEY);
+          if (stored) {
+            var parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) { return parsed; }
+          }
+        } catch (error) {
+          console.warn("无法读取已保存的数据", error);
+        }
+        return copyDefaults();
+      }
+
+      function persistTasks() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+        } catch (error) {
+          showToast(currentLanguage === "en" ?
+            "Your browser could not save the project; use Save project file (JSON) as a backup." :
+            "浏览器未能保存数据；仍可使用“保存项目文件（JSON）”备份。"
+          );
+        }
+      }
+
+      function saveTasks() {
+        var nextSnapshot = JSON.stringify(tasks);
+        if (nextSnapshot !== lastSavedSnapshot) {
+          undoStack.push(lastSavedSnapshot);
+          if (undoStack.length > MAX_HISTORY_STEPS) { undoStack.shift(); }
+          redoStack = [];
+          lastSavedSnapshot = nextSnapshot;
+        }
+        persistTasks();
+        updateHistoryButtons();
+      }
+
+      function updateHistoryButtons() {
+        document.getElementById("undoButton").disabled = !undoStack.length;
+        document.getElementById("redoButton").disabled = !redoStack.length;
+      }
+
+      function restoreHistory(snapshot) {
+        var restored = JSON.parse(snapshot);
+        if (!validateImport(restored)) { throw new Error("Invalid history data"); }
+        tasks = restored;
+        selectedId = null;
+        collapsedIds.clear();
+        lastSavedSnapshot = snapshot;
+        persistTasks();
+      }
+
+      function undoChanges() {
+        if (!undoStack.length) {
+          showToast(tr("nothingToUndo"));
+          return;
+        }
+        var currentSnapshot = JSON.stringify(tasks);
+        var previousSnapshot = undoStack.pop();
+        redoStack.push(currentSnapshot);
+        restoreHistory(previousSnapshot);
+        render();
+        updateHistoryButtons();
+        showToast(tr("undone"));
+      }
+
+      function redoChanges() {
+        if (!redoStack.length) {
+          showToast(tr("nothingToRedo"));
+          return;
+        }
+        var currentSnapshot = JSON.stringify(tasks);
+        var nextSnapshot = redoStack.pop();
+        undoStack.push(currentSnapshot);
+        restoreHistory(nextSnapshot);
+        render();
+        updateHistoryButtons();
+        showToast(tr("redone"));
+      }
+
+      function findTask(id) {
+        return tasks.find(function (task) { return task.id === id; });
+      }
+
+      function childrenOf(id) {
+        return tasks.filter(function (task) { return task.parent === id; });
+      }
+
+      function hasChildren(task) {
+        return childrenOf(task.id).length > 0;
+      }
+
+      function summaryRange(task) {
+        var descendants = descendantsOf(task.id);
+        if (!descendants.length) {
+          return { start: task.start, end: task.end };
+        }
+        var ranges = descendants.map(function (item) { return displayRange(item); });
+        var start = ranges.map(function (range) { return range.start; }).sort()[0];
+        var end = ranges.map(function (range) { return range.end; }).sort().slice(-1)[0];
+        return { start: start, end: end };
+      }
+
+      function descendantsOf(id) {
+        var result = [];
+        childrenOf(id).forEach(function (child) {
+          result.push(child);
+          result = result.concat(descendantsOf(child.id));
+        });
+        return result;
+      }
+
+      function displayRange(task) {
+        return task.type === "summary" && !task.manualRange ?
+          summaryRange(task) :
+          { start: task.start, end: task.end };
+      }
+
+      function visibleRows() {
+        var result = [];
+        function visit(parent, depth) {
+          childrenOf(parent).forEach(function (task) {
+            result.push({ task: task, depth: depth });
+            if (!collapsedIds.has(task.id)) {
+              visit(task.id, depth + 1);
+            }
+          });
+        }
+        visit(null, 0);
+        return result;
+      }
+
+      function totalTimelineDays() {
+        return dayDifference(timelineStart, timelineEnd) + 1;
+      }
+
+      function refreshTimelineRange() {
+        if (!tasks.length) { return; }
+        var ranges = tasks.map(function (task) { return displayRange(task); });
+        var earliest = ranges.map(function (range) { return range.start; }).sort()[0];
+        var latest = ranges.map(function (range) { return range.end; }).sort().slice(-1)[0];
+        timelineStart = addDays(parseDate(earliest), -7);
+        timelineEnd = addDays(parseDate(latest), 9);
+      }
+
+      function setTimelineStyle() {
+        var width = totalTimelineDays() * DAY_WIDTH;
+        document.documentElement.style.setProperty("--day-width", DAY_WIDTH + "px");
+        document.documentElement.style.setProperty("--week-width", (DAY_WIDTH * 7) + "px");
+        timelineCanvas.style.width = width + "px";
+        timelineHeaderInner.style.width = width + "px";
+      }
+
+      function renderHeader() {
+        setTimelineStyle();
+        var monthHolder = document.getElementById("months");
+        var weekHolder = document.getElementById("weeks");
+        monthHolder.innerHTML = "";
+        weekHolder.innerHTML = "";
+        var cursor = new Date(Date.UTC(timelineStart.getUTCFullYear(), timelineStart.getUTCMonth(), 1));
+        while (cursor <= timelineEnd) {
+          var monthStart = cursor < timelineStart ? timelineStart : cursor;
+          var nextMonth = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1));
+          var monthEnd = addDays(nextMonth, -1);
+          if (monthEnd > timelineEnd) { monthEnd = timelineEnd; }
+          var cell = document.createElement("div");
+          cell.className = "month-cell";
+          cell.textContent = cursor.getUTCFullYear() + "-" + String(cursor.getUTCMonth() + 1).padStart(2, "0");
+          cell.style.left = (dayDifference(timelineStart, monthStart) * DAY_WIDTH) + "px";
+          cell.style.width = ((dayDifference(monthStart, monthEnd) + 1) * DAY_WIDTH) + "px";
+          monthHolder.appendChild(cell);
+          cursor = nextMonth;
+        }
+
+        var tick = timelineStart;
+        var firstTick = true;
+        while (tick <= timelineEnd) {
+          var nextTick;
+          if (firstTick) {
+            var daysUntilSunday = (7 - tick.getUTCDay()) % 7;
+            nextTick = daysUntilSunday === 0 ? addDays(tick, 7) : addDays(tick, daysUntilSunday);
+            firstTick = false;
+          } else {
+            nextTick = addDays(tick, 7);
+          }
+          var tickEnd = addDays(nextTick, -1);
+          if (tickEnd > timelineEnd) { tickEnd = timelineEnd; }
+          var weekCell = document.createElement("div");
+          weekCell.className = "week-cell";
+          weekCell.textContent = String(tick.getUTCDate()).padStart(2, "0");
+          weekCell.style.left = (dayDifference(timelineStart, tick) * DAY_WIDTH) + "px";
+          weekCell.style.width = ((dayDifference(tick, tickEnd) + 1) * DAY_WIDTH) + "px";
+          weekHolder.appendChild(weekCell);
+          tick = nextTick;
+        }
+      }
+
+      function createTaskRow(entry) {
+        var task = entry.task;
+        var range = displayRange(task);
+        var isSummary = task.type === "summary";
+        var hasChildTasks = hasChildren(task);
+        var row = document.createElement("div");
+        row.className = "task-row" + (task.id === selectedId ? " is-selected" : "");
+        row.dataset.taskId = task.id;
+
+        var nameCell = document.createElement("div");
+        nameCell.className = "task-cell name-cell can-edit";
+        nameCell.style.paddingLeft = (18 + entry.depth * 25) + "px";
+        if (hasChildTasks) {
+          var caret = document.createElement("button");
+          caret.className = "caret" + (collapsedIds.has(task.id) ? " is-closed" : "");
+          caret.type = "button";
+          caret.textContent = "▾";
+          caret.title = collapsedIds.has(task.id) ? "展开子任务" : "折叠子任务";
+          caret.title = collapsedIds.has(task.id) ? tr("expandChildren") : tr("collapseChildren");
+          caret.addEventListener("click", function (event) {
+            event.stopPropagation();
+            if (collapsedIds.has(task.id)) { collapsedIds.delete(task.id); }
+            else { collapsedIds.add(task.id); }
+            render();
+          });
+          nameCell.appendChild(caret);
+        } else {
+          var spacer = document.createElement("span");
+          spacer.className = "caret-placeholder";
+          nameCell.appendChild(spacer);
+        }
+        var name = makeTextEditor(task);
+        name.className += isSummary ? " summary-name" : "";
+        nameCell.appendChild(name);
+        nameCell.addEventListener("click", function (event) {
+          event.stopPropagation();
+          selectTask(task.id);
+        });
+
+        var startCell = makeDateCell(task, "start", range.start);
+        var endCell = makeDateCell(task, "end", range.end);
+        var durationCell = document.createElement("div");
+        durationCell.className = "task-cell duration-cell";
+        durationCell.textContent = durationText(task, range);
+        durationCell.title = "根据开始和结束日期自动计算（含起止日，不含周末）";
+        durationCell.title = tr("durationHint");
+        var weeksCell = document.createElement("div");
+        weeksCell.className = "task-cell duration-cell weeks-cell";
+        weeksCell.textContent = weekText(task, range);
+        weeksCell.title = "每 5 个工作日计算为 1 周";
+        weeksCell.title = tr("weeksHint");
+        row.appendChild(nameCell);
+        row.appendChild(startCell);
+        row.appendChild(endCell);
+        row.appendChild(durationCell);
+        row.appendChild(weeksCell);
+        row.addEventListener("click", function () {
+          selectTask(task.id);
+        });
+        return row;
+      }
+
+      function makeDateCell(task, field, value) {
+        var cell = document.createElement("div");
+        cell.className = "task-cell can-edit";
+        cell.dataset.field = field;
+        var input = document.createElement("input");
+        input.className = "table-editor date-editor";
+        input.type = "text";
+        input.readOnly = true;
+        input.value = value;
+        input.setAttribute("aria-haspopup", "dialog");
+        input.title = task.type === "summary" ?
+          "编辑汇总日期（之后不再随子任务自动变化）" :
+          "编辑日期";
+        input.title = task.type === "summary" ? tr("editSummaryDate") : tr("editDate");
+        input.addEventListener("click", function (event) {
+          event.stopPropagation();
+          selectTask(task.id);
+          openDatePicker(input, input.value, function (nextDate) {
+            updateTaskField(task, field, nextDate);
+          });
+        });
+        input.addEventListener("focus", function (event) {
+          event.stopPropagation();
+          selectTask(task.id);
+        });
+        input.addEventListener("keydown", function (event) {
+          if (event.key !== "Enter" && event.key !== " ") { return; }
+          event.preventDefault();
+          openDatePicker(input, input.value, function (nextDate) {
+            updateTaskField(task, field, nextDate);
+          });
+        });
+        cell.appendChild(input);
+        cell.addEventListener("click", function (event) {
+          event.stopPropagation();
+          selectTask(task.id);
+        });
+        return cell;
+      }
+
+      function createTimelineRow(entry) {
+        var task = entry.task;
+        var range = displayRange(task);
+        var row = document.createElement("div");
+        row.className = "timeline-row" + (task.id === selectedId ? " is-selected" : "");
+        row.dataset.taskId = task.id;
+        if (task.type === "milestone") {
+          var milestone = document.createElement("div");
+          var milestoneComplete = taskProgressPercent(range) >= 100;
+          milestone.className = "milestone" + (milestoneComplete ? " is-complete" : "");
+          milestone.dataset.taskId = task.id;
+          milestone.tabIndex = 0;
+          milestone.setAttribute("aria-label", progressDescription(task, range));
+          milestone.title = progressDescription(task, range);
+          milestone.style.left = (dayDifference(timelineStart, parseDate(range.start)) * DAY_WIDTH) + "px";
+          row.appendChild(milestone);
+        } else {
+          var bar = document.createElement("div");
+          var progressPercent = taskProgressPercent(range);
+          bar.className = "bar" + (task.type === "summary" ? " summary" : "");
+          bar.dataset.taskId = task.id;
+          bar.tabIndex = 0;
+          bar.title = progressDescription(task, range);
+          bar.setAttribute("aria-label", progressDescription(task, range));
+          var left = dayDifference(timelineStart, parseDate(range.start)) * DAY_WIDTH;
+          var width = (dayDifference(parseDate(range.start), parseDate(range.end)) + 1) * DAY_WIDTH;
+          bar.style.left = left + "px";
+          bar.style.width = Math.max(width, 8) + "px";
+          var progress = document.createElement("div");
+          progress.className = "bar-progress";
+          progress.style.width = progressPercent + "%";
+          bar.appendChild(progress);
+          row.appendChild(bar);
+        }
+        row.addEventListener("click", function () {
+          selectTask(task.id);
+        });
+        return row;
+      }
+
+      function render() {
+        refreshTimelineRange();
+        renderHeader();
+        var rows = visibleRows();
+        taskRowsElement.innerHTML = "";
+        timelineCanvas.innerHTML = "";
+        rows.forEach(function (entry) {
+          taskRowsElement.appendChild(createTaskRow(entry));
+          timelineCanvas.appendChild(createTimelineRow(entry));
+        });
+        timelineCanvas.style.minHeight = Math.max(timelinePane.clientHeight, rows.length * 45) + "px";
+        updateTaskActionButtons();
+      }
+
+      function updateTaskActionButtons() {
+        var selected = findTask(selectedId);
+        document.getElementById("moveUpButton").disabled = !selected || !visibleMoveTarget(selected, "up");
+        document.getElementById("moveDownButton").disabled = !selected || !visibleMoveTarget(selected, "down");
+        document.getElementById("outdentTaskButton").disabled = !selected || !selected.parent;
+        document.getElementById("deleteTaskButton").disabled = !selected;
+      }
+
+      function selectTask(taskId) {
+        if (!findTask(taskId)) { return; }
+        selectedId = taskId;
+        taskRowsElement.querySelectorAll(".task-row").forEach(function (row) {
+          row.classList.toggle("is-selected", row.dataset.taskId === taskId);
+        });
+        timelineCanvas.querySelectorAll(".timeline-row").forEach(function (row) {
+          row.classList.toggle("is-selected", row.dataset.taskId === taskId);
+        });
+        updateTaskActionButtons();
+      }
+
+      function visibleMoveTarget(task, direction) {
+        var rows = visibleRows();
+        var position = rows.findIndex(function (entry) { return entry.task.id === task.id; });
+        if (position < 0) { return null; }
+        if (direction === "up") {
+          return position > 0 ? rows[position - 1].task : null;
+        }
+        var ownIds = new Set([task.id].concat(descendantsOf(task.id).map(function (item) { return item.id; })));
+        for (var index = position + 1; index < rows.length; index += 1) {
+          if (!ownIds.has(rows[index].task.id)) { return rows[index].task; }
+        }
+        return null;
+      }
+
+      function makeTextEditor(task) {
+        var input = document.createElement("input");
+        input.className = "table-editor name-editor";
+        input.type = "text";
+        input.value = task.name;
+        input.title = "编辑任务名称";
+        input.title = tr("editTaskName");
+        input.addEventListener("click", function (event) {
+          event.stopPropagation();
+          selectTask(task.id);
+        });
+        input.addEventListener("focus", function (event) {
+          event.stopPropagation();
+          selectTask(task.id);
+        });
+        input.addEventListener("change", function () {
+          updateTaskField(task, "name", input.value);
+        });
+        input.addEventListener("keydown", function (event) {
+          if (event.key === "Enter") { input.blur(); }
+          if (event.key === "Escape") {
+            input.value = task.name;
+            input.blur();
+          }
+        });
+        return input;
+      }
+
+      function updateTaskField(task, field, nextValue) {
+        var value = String(nextValue || "").trim();
+        if (!value) {
+          render();
+          return;
+        }
+        if (field === "name") {
+          task.name = value;
+        } else {
+          task[field] = value;
+          if (task.type === "summary") { task.manualRange = true; }
+          if (parseDate(task.end) < parseDate(task.start)) {
+            if (field === "start") { task.end = value; }
+            else { task.start = value; }
+          }
+        }
+        saveTasks();
+        render();
+      }
+
+      function requestEditor(task, field) {
+        selectedId = task.id;
+        requestAnimationFrame(function () {
+          var row = taskRowsElement.querySelector('[data-task-id="' + task.id + '"]');
+          var cell = row ? row.querySelector('.task-cell[data-field="' + field + '"]') : null;
+          var value = field === "name" ? task.name : displayRange(task)[field];
+          if (cell) { openEditor(cell, task, field, value); }
+        });
+      }
+
+      function openEditor(cell, task, field, currentValue) {
+        if (cell.querySelector("input")) { return; }
+        selectedId = task.id;
+        var input = document.createElement("input");
+        input.className = "inline-editor";
+        input.type = field === "name" ? "text" : "date";
+        input.value = currentValue;
+        input.setAttribute("aria-label", field === "name" ? "任务名称" : (field === "start" ? "开始日期" : "结束日期"));
+        cell.replaceChildren(input);
+        input.focus();
+        if (field === "name") { input.select(); }
+        var committed = false;
+        function commit() {
+          if (committed) { return; }
+          committed = true;
+          var nextValue = input.value.trim();
+          if (nextValue) {
+            if (field === "name") {
+              task.name = nextValue;
+            } else {
+              task[field] = nextValue;
               if (task.type === "summary") { task.manualRange = true; }
               if (parseDate(task.end) < parseDate(task.start)) {
                 if (field === "start") { task.end = nextValue; }
@@ -914,7 +2043,7 @@
           state.task.start = formatDate(addDays(parseDate(state.originalStart), state.difference));
           state.task.end = formatDate(addDays(parseDate(state.originalEnd), state.difference));
           saveTasks();
-          showToast("宸茶皟鏁粹€? + state.task.name + "鈥濈殑鏃ユ湡銆?);
+          showToast("已调整“" + state.task.name + "”的日期。");
         }
         render();
       }
@@ -1031,24 +2160,24 @@
 
       function outdentTask(task) {
         if (!task || !task.parent) {
-          showToast("鎵€閫変换鍔″凡缁忓湪椤跺眰銆?);
+          showToast("所选任务已经在顶层。");
           return;
         }
         var parent = findTask(task.parent);
         task.parent = parent ? parent.parent : null;
         saveTasks();
         render();
-        showToast("宸插噺灏戔€? + task.name + "鈥濈殑灞傜骇銆?);
+        showToast("已减少“" + task.name + "”的层级。");
       }
 
       function moveTask(task, direction) {
         if (!task) {
-          showToast("璇峰厛閫夋嫨涓€涓换鍔°€?);
+          showToast("请先选择一个任务。");
           return;
         }
         var neighbor = visibleMoveTarget(task, direction);
         if (!neighbor) {
-          showToast(direction === "up" ? "璇ヤ换鍔″凡缁忔帓鍦ㄦ渶鍓嶃€? : "璇ヤ换鍔″凡缁忔帓鍦ㄦ渶鍚庛€?);
+          showToast(direction === "up" ? "该任务已经排在最前。" : "该任务已经排在最后。");
           return;
         }
 
@@ -1073,27 +2202,27 @@
         }
 
         if (insertAt < 0) {
-          showToast("鏃犳硶绉诲姩璇ヤ换鍔★紝璇烽噸璇曘€?);
+          showToast("无法移动该任务，请重试。");
           return;
         }
         tasks = remaining.slice(0, insertAt).concat(movingBlock, remaining.slice(insertAt));
         saveTasks();
         render();
-        showToast("宸? + (direction === "up" ? "涓婄Щ" : "涓嬬Щ") + "涓€琛岋細鈥? + task.name + "鈥濄€?);
+        showToast("已" + (direction === "up" ? "上移" : "下移") + "一行：“" + task.name + "”。");
       }
 
       function deleteSelected(task) {
         var nested = descendantsOf(task.id);
         var message = nested.length ?
-          "鍒犻櫎鈥? + task.name + "鈥濆強鍏?" + nested.length + " 涓瓙浠诲姟鍚楋紵" :
-          "鍒犻櫎鈥? + task.name + "鈥濆悧锛?;
+          "删除“" + task.name + "”及其 " + nested.length + " 个子任务吗？" :
+          "删除“" + task.name + "”吗？";
         if (!window.confirm(message)) { return; }
         var removal = new Set([task.id].concat(nested.map(function (item) { return item.id; })));
         tasks = tasks.filter(function (item) { return !removal.has(item.id); });
         selectedId = null;
         saveTasks();
         render();
-        showToast("浠诲姟宸插垹闄ゃ€?);
+        showToast("任务已删除。");
       }
 
       function saveCurrentProject() {
@@ -1146,13 +2275,13 @@
       }
 
       function resetTasks() {
-        if (!window.confirm("鎭㈠涓轰笌鎴浘涓€鑷寸殑绀轰緥鏁版嵁锛熷綋鍓嶆湰鍦颁慨鏀逛細琚浛鎹€?)) { return; }
+        if (!window.confirm("恢复为与截图一致的示例数据？当前本地修改会被替换。")) { return; }
         tasks = copyDefaults();
         selectedId = null;
         collapsedIds.clear();
         saveTasks();
         render();
-        showToast("宸叉仮澶嶆埅鍥剧ず渚嬫暟鎹€?);
+        showToast("已恢复截图示例数据。");
       }
 
       function validateImport(data) {
@@ -1171,7 +2300,7 @@
           try {
             var importedFile = JSON.parse(reader.result);
             var incoming = Array.isArray(importedFile) ? importedFile : importedFile && importedFile.tasks;
-            if (!validateImport(incoming)) { throw new Error("鏍煎紡涓嶆纭?); }
+            if (!validateImport(incoming)) { throw new Error("格式不正确"); }
             tasks = incoming;
             if (!Array.isArray(importedFile) && typeof importedFile.projectName === "string") {
               setProjectName(importedFile.projectName);
@@ -1183,9 +2312,9 @@
             collapsedIds.clear();
             saveTasks();
             render();
-            showToast("宸插鍏?" + tasks.length + " 涓换鍔°€?);
+            showToast("已导入 " + tasks.length + " 个任务。");
           } catch (error) {
-            showToast("瀵煎叆澶辫触锛氳閫夋嫨鐢辨湰搴旂敤瀵煎嚭鐨?JSON 鏂囦欢銆?);
+            showToast("导入失败：请选择由本应用导出的 JSON 文件。");
           }
           importInput.value = "";
         };
@@ -1245,7 +2374,7 @@
         button.addEventListener("click", function () {
           DAY_WIDTH = button.dataset.quick === "zoomIn" ? Math.min(18, DAY_WIDTH + 1.2) : Math.max(5.5, DAY_WIDTH - 1.2);
           render();
-          showToast(button.dataset.quick === "zoomIn" ? "宸叉斁澶ф椂闂磋酱銆? : "宸茬缉灏忔椂闂磋酱銆?);
+          showToast(button.dataset.quick === "zoomIn" ? "已放大时间轴。" : "已缩小时间轴。");
         });
       });
 
@@ -1282,39 +2411,4 @@
 
       taskPane.addEventListener("scroll", function () {
         if (!scrollLock) {
-          scrollLock = true;
-          timelinePane.scrollTop = taskPane.scrollTop;
-          scrollLock = false;
-        }
-      });
-
-      timelineCanvas.addEventListener("pointerdown", startDrag);
-      paneResizer.addEventListener("pointerdown", startTableResize);
-      paneResizer.addEventListener("keydown", function (event) {
-        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") { return; }
-        event.preventDefault();
-        setTableWidth(tableWidth + (event.key === "ArrowLeft" ? -1 : 1) * (event.shiftKey ? 50 : 20), true);
-      });
-      document.addEventListener("pointermove", moveDrag);
-      document.addEventListener("pointermove", moveTableResize);
-      document.addEventListener("pointerup", endDrag);
-      document.addEventListener("pointerup", endTableResize);
-      document.addEventListener("pointercancel", endDrag);
-      document.addEventListener("pointercancel", endTableResize);
-      importInput.addEventListener("change", importTasks);
-      window.addEventListener("resize", function () {
-        setTableWidth(tableWidth, false);
-        hideDatePicker();
-        render();
-      });
-
-      setTableWidth(tableWidth, false);
-      applyTranslations();
-      lastProgressDate = formatDate(todayUtcDate());
-      window.setInterval(refreshProgressForNewDay, 60000);
-      render();
-      updateHistoryButtons();
-    }());
-  </script>
-</body>
-</html>
+          scrollLock = tru

@@ -162,6 +162,7 @@
     .task-pane {
       min-width: var(--left-width);
       height: 100%;
+      padding-bottom: 78px;
       overflow-y: auto;
       overflow-x: hidden;
       border-right: 2px solid #e1e5ea;
@@ -664,6 +665,112 @@
 
     .hidden-input { display: none; }
 
+    .final-date-panel {
+      position: fixed;
+      left: 0;
+      bottom: 0;
+      z-index: 32;
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      width: var(--left-width);
+      min-height: 70px;
+      padding: 10px 16px;
+      border-top: 1px solid #d8dfe6;
+      border-right: 2px solid #d8dfe6;
+      background: rgba(255,255,255,.97);
+      box-shadow: 0 -3px 12px rgba(18, 28, 42, .08);
+      color: #233444;
+    }
+
+    .final-date-label {
+      display: flex;
+      flex: 0 0 auto;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .final-date-input {
+      width: 142px;
+      height: 29px;
+      padding: 4px 8px;
+      border: 1px solid #aebbc8;
+      border-radius: 4px;
+      color: #182b3c;
+      background: #fff;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .final-date-input:focus-visible {
+      border-color: #287bc8;
+      outline: 2px solid rgba(40,123,200,.24);
+      outline-offset: 1px;
+    }
+
+    .final-counts {
+      display: flex;
+      gap: 6px;
+      align-items: baseline;
+      padding-left: 2px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .final-counts strong { color: #176d35; font-size: 18px; }
+    .final-counts .count-separator { color: #99a5b0; padding: 0 2px; }
+
+    .date-picker {
+      position: fixed;
+      z-index: 50;
+      width: 278px;
+      padding: 8px;
+      border: 1px solid #cdd6df;
+      border-radius: 7px;
+      background: #fff;
+      box-shadow: 0 9px 26px rgba(18, 28, 42, .2);
+      color: #1b2b3a;
+    }
+
+    .date-picker[hidden] { display: none; }
+    .date-picker-header { display: flex; align-items: center; justify-content: space-between; gap: 5px; padding: 1px 1px 7px; }
+    .date-picker-title { min-width: 0; color: #253647; font-size: 13px; text-align: center; }
+    .date-picker-nav {
+      width: 29px;
+      height: 27px;
+      border: 0;
+      border-radius: 4px;
+      color: #1d3850;
+      background: transparent;
+      font-size: 21px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .date-picker-nav:hover, .date-picker-nav:focus-visible { background: #edf5fd; outline: none; }
+    .date-picker-weekdays, .date-picker-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+    .date-picker-weekday { padding: 3px 0 4px; color: #718090; font-size: 11px; font-weight: 700; text-align: center; }
+    .date-picker-day {
+      height: 31px;
+      border: 0;
+      border-radius: 4px;
+      color: #1b2b3a;
+      background: transparent;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .date-picker-day:hover, .date-picker-day:focus-visible { background: #e8f3ff; outline: none; }
+    .date-picker-day.is-outside { color: #a6b0ba; }
+    .date-picker-day.is-today { box-shadow: inset 0 0 0 1px #5a9bd5; }
+    .date-picker-day.is-selected { color: #fff; background: #287bc8; }
+
+    @media (max-width: 1180px) {
+      .final-date-panel { flex-wrap: wrap; gap: 8px 13px; min-height: 78px; }
+    }
+
     @media (max-width: 1200px) {
       :root { --left-width: 750px; }
       .task-header, .task-row { grid-template-columns: minmax(300px, 1fr) 125px 125px 110px 90px; }
@@ -704,7 +811,8 @@
   <aside class="project-actions" aria-label="Project file actions">
     <button class="file-action" id="undoButton" type="button" disabled>撤销</button>
     <button class="file-action" id="redoButton" type="button" disabled>还原</button>
-    <button class="file-action primary" id="saveProjectButton" type="button">保存项目文件（JSON）</button>
+    <button class="file-action primary" id="saveButton" type="button">保存</button>
+    <button class="file-action" id="saveProjectButton" type="button">导出 JSON</button>
     <button class="file-action" id="loadProjectButton" type="button">读取项目文件（JSON）</button>
     <label class="language-picker" for="languageSelect"><span id="languageLabel">语言</span>
       <select id="languageSelect" aria-label="Language">
@@ -728,6 +836,26 @@
     <span class="progress-legend-item"><i class="progress-swatch remaining"></i><span id="remainingLabel">剩余</span></span>
     <strong class="today-date" id="todayDate">今天：2026-07-14</strong>
   </aside>
+  <aside class="final-date-panel" id="finalDatePanel" aria-label="最终演示日期">
+    <label class="final-date-label" for="finalPresentationDate"><span id="finalPresentationLabel">最终演示日期</span>
+      <input class="final-date-input" id="finalPresentationDate" type="text" value="2026-08-07" readonly aria-haspopup="dialog">
+    </label>
+    <div class="final-counts" aria-live="polite">
+      <span id="finalRemainingLabel">剩余</span>
+      <strong id="finalRemainingDays">0</strong><span id="finalDaysUnit">天</span>
+      <span class="count-separator">·</span>
+      <strong id="finalRemainingWeeks">0</strong><span id="finalWeeksUnit">周</span>
+    </div>
+  </aside>
+  <div class="date-picker" id="datePicker" role="dialog" aria-modal="false" aria-label="选择日期" hidden>
+    <div class="date-picker-header">
+      <button class="date-picker-nav" id="datePickerPrevious" type="button" aria-label="上一个月">‹</button>
+      <strong class="date-picker-title" id="datePickerTitle"></strong>
+      <button class="date-picker-nav" id="datePickerNext" type="button" aria-label="下一个月">›</button>
+    </div>
+    <div class="date-picker-weekdays" id="datePickerWeekdays"></div>
+    <div class="date-picker-days" id="datePickerDays"></div>
+  </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <input class="hidden-input" type="file" id="importInput" accept="application/json,.json">
 
@@ -739,6 +867,7 @@
       var STORAGE_KEY = "editable-gantt-reference-v1";
       var LANGUAGE_KEY = "editable-gantt-language-v1";
       var TABLE_WIDTH_KEY = "editable-gantt-table-width-v1";
+      var FINAL_DATE_KEY = "editable-gantt-final-presentation-date-v1";
       var MAX_HISTORY_STEPS = 80;
       var MIN_TABLE_WIDTH = 750;
       var MIN_TIMELINE_WIDTH = 280;
@@ -750,6 +879,7 @@
       var menuOpen = false;
       var dragState = null;
       var resizeState = null;
+      var datePickerState = null;
       var lastProgressDate = "";
       var scrollLock = false;
       var toastTimer = null;
@@ -767,6 +897,11 @@
       var actionMenu = document.getElementById("actionMenu");
       var importInput = document.getElementById("importInput");
       var languageSelect = document.getElementById("languageSelect");
+      var finalPresentationInput = document.getElementById("finalPresentationDate");
+      var datePicker = document.getElementById("datePicker");
+      var datePickerTitle = document.getElementById("datePickerTitle");
+      var datePickerWeekdays = document.getElementById("datePickerWeekdays");
+      var datePickerDays = document.getElementById("datePickerDays");
       var tableWidth = loadTableWidth();
 
       var defaults = [
@@ -810,7 +945,8 @@
           deleteTask: "删除任务",
           undo: "撤销",
           redo: "还原",
-          saveFile: "保存项目文件（JSON）",
+          save: "保存",
+          saveFile: "导出 JSON",
           loadFile: "读取项目文件（JSON）",
           language: "语言",
           projectActions: "项目文件操作",
@@ -818,6 +954,10 @@
           completed: "已完成",
           remaining: "剩余",
           today: "今天",
+          finalPresentation: "最终演示日期",
+          chooseDate: "选择日期",
+          previousMonth: "上一个月",
+          nextMonth: "下一个月",
           days: "天",
           editTaskName: "编辑任务名称",
           editSummaryDate: "编辑汇总日期（之后不再随子任务自动变化）",
@@ -841,7 +981,8 @@
           nothingToRedo: "没有可还原的操作。",
           undone: "已撤销上一步操作。",
           redone: "已还原上一步操作。",
-          fileSaved: "项目文件已保存。",
+          fileSaved: "JSON 文件已导出。",
+          projectSaved: "项目已保存到当前浏览器。",
           languageChanged: "已切换为简中界面。",
           newTaskName: "新任务",
           newMilestoneName: "新里程碑"
@@ -871,14 +1012,19 @@
           deleteTask: "Delete task",
           undo: "Undo",
           redo: "Redo",
-          saveFile: "Save project file (JSON)",
-          loadFile: "Load project file (JSON)",
+          save: "Save",
+          saveFile: "Export JSON",
+          loadFile: "Load JSON",
           language: "Language",
           projectActions: "Project file actions",
           progressLegend: "Current date and progress legend",
           completed: "Completed",
           remaining: "Remaining",
           today: "Today",
+          finalPresentation: "Final presentation date",
+          chooseDate: "Choose date",
+          previousMonth: "Previous month",
+          nextMonth: "Next month",
           days: "days",
           editTaskName: "Edit task name",
           editSummaryDate: "Edit summary date (it will no longer follow child tasks automatically)",
@@ -902,7 +1048,8 @@
           nothingToRedo: "There is nothing to redo.",
           undone: "Undid the previous change.",
           redone: "Redid the previous change.",
-          fileSaved: "Project file saved.",
+          fileSaved: "JSON file exported.",
+          projectSaved: "Project saved in this browser.",
           languageChanged: "Switched to English.",
           newTaskName: "New task",
           newMilestoneName: "New milestone"
@@ -911,6 +1058,7 @@
 
       var tasks = loadTasks();
       lastSavedSnapshot = JSON.stringify(tasks);
+      var finalPresentationDate = loadFinalPresentationDate();
 
       function parseDate(value) {
         var parts = String(value).split("-").map(Number);
@@ -959,6 +1107,7 @@
         if (today !== lastProgressDate) {
           lastProgressDate = today;
           updateTodayIndicator();
+          updateFinalPresentationPanel();
           render();
         }
       }
@@ -1027,6 +1176,145 @@
         return 910;
       }
 
+      function isValidDateValue(value) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value))) { return false; }
+        return formatDate(parseDate(value)) === value;
+      }
+
+      function latestProjectDate() {
+        if (!tasks.length) { return formatDate(todayUtcDate()); }
+        return tasks.map(function (task) { return displayRange(task).end; }).sort().slice(-1)[0];
+      }
+
+      function loadFinalPresentationDate() {
+        try {
+          var storedDate = localStorage.getItem(FINAL_DATE_KEY);
+          if (isValidDateValue(storedDate)) { return storedDate; }
+        } catch (error) {
+          // Storage is optional; use the latest project date instead.
+        }
+        return latestProjectDate();
+      }
+
+      function saveFinalPresentationDate() {
+        try { localStorage.setItem(FINAL_DATE_KEY, finalPresentationDate); } catch (error) { /* Storage is optional. */ }
+      }
+
+      function finalDateUnit(amount, singular, plural) {
+        if (currentLanguage !== "en") { return singular === "day" ? tr("days") : tr("weekUnit"); }
+        return amount === 1 ? singular : plural;
+      }
+
+      function updateFinalPresentationPanel() {
+        var remainingDays = Math.max(0, dayDifference(todayUtcDate(), parseDate(finalPresentationDate)));
+        var remainingWeeks = Math.ceil(remainingDays / 5);
+        document.getElementById("finalDatePanel").setAttribute("aria-label", tr("finalPresentation"));
+        document.getElementById("finalPresentationLabel").textContent = tr("finalPresentation");
+        finalPresentationInput.value = finalPresentationDate;
+        finalPresentationInput.title = tr("chooseDate");
+        document.getElementById("finalRemainingLabel").textContent = tr("remaining");
+        document.getElementById("finalRemainingDays").textContent = String(remainingDays);
+        document.getElementById("finalDaysUnit").textContent = finalDateUnit(remainingDays, "day", "days");
+        document.getElementById("finalRemainingWeeks").textContent = String(remainingWeeks);
+        document.getElementById("finalWeeksUnit").textContent = finalDateUnit(remainingWeeks, "week", "weeks");
+      }
+
+      function setFinalPresentationDate(nextDate) {
+        if (!isValidDateValue(nextDate)) { return; }
+        finalPresentationDate = nextDate;
+        saveFinalPresentationDate();
+        updateFinalPresentationPanel();
+      }
+
+      function datePickerWeekdayLabels() {
+        return currentLanguage === "en" ?
+          ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] :
+          ["一", "二", "三", "四", "五", "六", "日"];
+      }
+
+      function hideDatePicker() {
+        datePicker.hidden = true;
+        datePickerState = null;
+      }
+
+      function positionDatePicker(anchor) {
+        var box = anchor.getBoundingClientRect();
+        var left = Math.max(8, Math.min(window.innerWidth - datePicker.offsetWidth - 8, box.left));
+        var top = box.bottom + 6;
+        if (top + datePicker.offsetHeight > window.innerHeight - 8) {
+          top = Math.max(8, box.top - datePicker.offsetHeight - 6);
+        }
+        datePicker.style.left = left + "px";
+        datePicker.style.top = top + "px";
+      }
+
+      function renderDatePicker() {
+        if (!datePickerState) { return; }
+        var view = datePickerState.view;
+        var selectedDate = datePickerState.selected;
+        var formatter = new Intl.DateTimeFormat(currentLanguage === "en" ? "en-US" : "zh-CN", {
+          year: "numeric", month: "long", timeZone: "UTC"
+        });
+        datePickerTitle.textContent = formatter.format(view);
+        datePicker.setAttribute("aria-label", tr("chooseDate"));
+        document.getElementById("datePickerPrevious").setAttribute("aria-label", tr("previousMonth"));
+        document.getElementById("datePickerNext").setAttribute("aria-label", tr("nextMonth"));
+        datePickerWeekdays.replaceChildren();
+        datePickerWeekdayLabels().forEach(function (label) {
+          var weekday = document.createElement("span");
+          weekday.className = "date-picker-weekday";
+          weekday.textContent = label;
+          datePickerWeekdays.appendChild(weekday);
+        });
+        datePickerDays.replaceChildren();
+        var firstDay = new Date(Date.UTC(view.getUTCFullYear(), view.getUTCMonth(), 1));
+        var offset = (firstDay.getUTCDay() + 6) % 7;
+        var gridStart = addDays(firstDay, -offset);
+        var today = formatDate(todayUtcDate());
+        for (var index = 0; index < 42; index += 1) {
+          (function (date) {
+            var dateValue = formatDate(date);
+            var dayButton = document.createElement("button");
+            dayButton.type = "button";
+            dayButton.className = "date-picker-day" +
+              (date.getUTCMonth() !== view.getUTCMonth() ? " is-outside" : "") +
+              (dateValue === today ? " is-today" : "") +
+              (dateValue === selectedDate ? " is-selected" : "");
+            dayButton.textContent = String(date.getUTCDate());
+            dayButton.setAttribute("aria-label", dateValue);
+            dayButton.addEventListener("click", function (event) {
+              event.stopPropagation();
+              var selectDate = dateValue;
+              var callback = datePickerState && datePickerState.onSelect;
+              hideDatePicker();
+              if (callback) { callback(selectDate); }
+            });
+            datePickerDays.appendChild(dayButton);
+          }(addDays(gridStart, index)));
+        }
+        positionDatePicker(datePickerState.anchor);
+      }
+
+      function openDatePicker(anchor, selectedDate, onSelect) {
+        var selected = isValidDateValue(selectedDate) ? selectedDate : formatDate(todayUtcDate());
+        var selectedObject = parseDate(selected);
+        datePickerState = {
+          anchor: anchor,
+          selected: selected,
+          view: new Date(Date.UTC(selectedObject.getUTCFullYear(), selectedObject.getUTCMonth(), 1)),
+          onSelect: onSelect
+        };
+        datePicker.hidden = false;
+        renderDatePicker();
+      }
+
+      function changeDatePickerMonth(amount) {
+        if (!datePickerState) { return; }
+        var view = datePickerState.view;
+        datePickerState.view = new Date(Date.UTC(view.getUTCFullYear(), view.getUTCMonth() + amount, 1));
+        renderDatePicker();
+      }
+
       function maximumTableWidth() {
         return Math.max(MIN_TABLE_WIDTH, window.innerWidth - MIN_TIMELINE_WIDTH);
       }
@@ -1091,12 +1379,14 @@
         paneResizer.setAttribute("aria-label", tr("resizePanels"));
         document.getElementById("undoButton").textContent = tr("undo");
         document.getElementById("redoButton").textContent = tr("redo");
+        document.getElementById("saveButton").textContent = tr("save");
         document.getElementById("saveProjectButton").textContent = tr("saveFile");
         document.getElementById("loadProjectButton").textContent = tr("loadFile");
         document.getElementById("languageLabel").textContent = tr("language");
         languageSelect.setAttribute("aria-label", tr("language"));
         languageSelect.value = currentLanguage;
         updateTodayIndicator();
+        updateFinalPresentationPanel();
       }
 
       function setLanguage(language) {
@@ -1371,8 +1661,10 @@
         cell.dataset.field = field;
         var input = document.createElement("input");
         input.className = "table-editor date-editor";
-        input.type = "date";
+        input.type = "text";
+        input.readOnly = true;
         input.value = value;
+        input.setAttribute("aria-haspopup", "dialog");
         input.title = task.type === "summary" ?
           "编辑汇总日期（之后不再随子任务自动变化）" :
           "编辑日期";
@@ -1380,13 +1672,20 @@
         input.addEventListener("click", function (event) {
           event.stopPropagation();
           selectTask(task.id);
+          openDatePicker(input, input.value, function (nextDate) {
+            updateTaskField(task, field, nextDate);
+          });
         });
         input.addEventListener("focus", function (event) {
           event.stopPropagation();
           selectTask(task.id);
         });
-        input.addEventListener("change", function () {
-          updateTaskField(task, field, input.value);
+        input.addEventListener("keydown", function (event) {
+          if (event.key !== "Enter" && event.key !== " ") { return; }
+          event.preventDefault();
+          openDatePicker(input, input.value, function (nextDate) {
+            updateTaskField(task, field, nextDate);
+          });
         });
         cell.appendChild(input);
         cell.addEventListener("click", function (event) {
@@ -1814,6 +2113,11 @@
         showToast("任务已删除。");
       }
 
+      function saveCurrentProject() {
+        persistTasks();
+        showToast(tr("projectSaved"));
+      }
+
       function exportTasks() {
         var blob = new Blob([JSON.stringify(tasks, null, 2)], { type: "application/json" });
         var url = URL.createObjectURL(blob);
@@ -1896,9 +2200,21 @@
       });
       document.getElementById("undoButton").addEventListener("click", undoChanges);
       document.getElementById("redoButton").addEventListener("click", redoChanges);
+      document.getElementById("saveButton").addEventListener("click", saveCurrentProject);
       document.getElementById("saveProjectButton").addEventListener("click", exportTasks);
       document.getElementById("loadProjectButton").addEventListener("click", openProjectFile);
       languageSelect.addEventListener("change", function () { setLanguage(languageSelect.value); });
+      finalPresentationInput.addEventListener("click", function (event) {
+        event.stopPropagation();
+        openDatePicker(finalPresentationInput, finalPresentationDate, setFinalPresentationDate);
+      });
+      finalPresentationInput.addEventListener("keydown", function (event) {
+        if (event.key !== "Enter" && event.key !== " ") { return; }
+        event.preventDefault();
+        openDatePicker(finalPresentationInput, finalPresentationDate, setFinalPresentationDate);
+      });
+      document.getElementById("datePickerPrevious").addEventListener("click", function () { changeDatePickerMonth(-1); });
+      document.getElementById("datePickerNext").addEventListener("click", function () { changeDatePickerMonth(1); });
 
       document.querySelectorAll("[data-quick]").forEach(function (button) {
         button.addEventListener("click", function () {
@@ -1912,6 +2228,10 @@
         if (menuOpen && !actionMenu.contains(event.target) && !event.target.closest(".header-menu")) {
           hideMenu();
         }
+        if (datePickerState && !datePicker.contains(event.target) &&
+          !event.target.closest(".date-editor, .final-date-input")) {
+          hideDatePicker();
+        }
       });
 
       document.addEventListener("keydown", function (event) {
@@ -1923,6 +2243,7 @@
           return;
         }
         if (event.key === "Escape" && menuOpen) { hideMenu(); }
+        if (event.key === "Escape" && datePickerState) { hideDatePicker(); }
       });
 
       timelinePane.addEventListener("scroll", function () {
@@ -1958,6 +2279,7 @@
       importInput.addEventListener("change", importTasks);
       window.addEventListener("resize", function () {
         setTableWidth(tableWidth, false);
+        hideDatePicker();
         render();
       });
 

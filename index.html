@@ -413,6 +413,35 @@
       font-size: 11px;
     }
 
+    .file-action {
+      min-height: 27px;
+      padding: 4px 9px;
+      border: 1px solid #cfd7df;
+      border-radius: 4px;
+      color: #1c354b;
+      background: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .file-action:hover, .file-action:focus-visible {
+      border-color: #5d94c9;
+      background: #edf5fd;
+      outline: none;
+    }
+
+    .file-action.primary {
+      border-color: #287bc8;
+      color: #fff;
+      background: #287bc8;
+    }
+
+    .file-action.primary:hover, .file-action.primary:focus-visible {
+      border-color: #1765ad;
+      background: #1765ad;
+    }
+
     .action-menu {
       position: fixed;
       z-index: 20;
@@ -511,7 +540,9 @@
   </main>
 
   <aside class="corner-help" aria-label="使用提示">
-    直接点击名称或日期编辑 · 拖动任务条改日期 · <kbd>⋮</kbd> 管理任务
+    <span>直接点击名称或日期编辑 · 拖动任务条改日期 · <kbd>⋮</kbd> 管理任务</span>
+    <button class="file-action" id="loadFileButton" type="button">读取文件</button>
+    <button class="file-action primary" id="saveFileButton" type="button">保存文件</button>
   </aside>
   <div class="action-menu" id="actionMenu" hidden></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -1069,8 +1100,8 @@
           render();
         }));
         actionMenu.appendChild(menuDivider());
-        actionMenu.appendChild(menuButton("导出 JSON 备份", exportTasks));
-        actionMenu.appendChild(menuButton("导入 JSON 数据", function () { importInput.click(); }));
+        actionMenu.appendChild(menuButton("保存项目文件（JSON）", exportTasks));
+        actionMenu.appendChild(menuButton("读取项目文件（JSON）", openProjectFile));
         actionMenu.appendChild(menuButton("恢复截图示例数据", resetTasks));
         positionMenu(button);
       }
@@ -1154,7 +1185,11 @@
         link.click();
         link.remove();
         URL.revokeObjectURL(url);
-        showToast("已导出 JSON 备份。");
+        showToast("项目文件已保存。");
+      }
+
+      function openProjectFile() {
+        importInput.click();
       }
 
       function resetTasks() {
@@ -1202,6 +1237,9 @@
         if (menuOpen) { hideMenu(); }
         else { showMainMenu(event.currentTarget); }
       });
+
+      document.getElementById("saveFileButton").addEventListener("click", exportTasks);
+      document.getElementById("loadFileButton").addEventListener("click", openProjectFile);
 
       document.querySelectorAll("[data-quick]").forEach(function (button) {
         button.addEventListener("click", function () {

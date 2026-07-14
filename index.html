@@ -834,6 +834,7 @@
         nameCell.appendChild(name);
         nameCell.addEventListener("click", function (event) {
           event.stopPropagation();
+          selectTask(task.id);
         });
 
         var startCell = makeDateCell(task, "start", range.start);
@@ -847,8 +848,7 @@
         row.appendChild(endCell);
         row.appendChild(durationCell);
         row.addEventListener("click", function () {
-          selectedId = task.id;
-          render();
+          selectTask(task.id);
         });
         return row;
       }
@@ -864,13 +864,22 @@
         input.title = task.type === "summary" ?
           "编辑汇总日期（之后不再随子任务自动变化）" :
           "编辑日期";
-        input.addEventListener("click", function (event) { event.stopPropagation(); });
-        input.addEventListener("focus", function (event) { event.stopPropagation(); });
+        input.addEventListener("click", function (event) {
+          event.stopPropagation();
+          selectTask(task.id);
+        });
+        input.addEventListener("focus", function (event) {
+          event.stopPropagation();
+          selectTask(task.id);
+        });
         input.addEventListener("change", function () {
           updateTaskField(task, field, input.value);
         });
         cell.appendChild(input);
-        cell.addEventListener("click", function (event) { event.stopPropagation(); });
+        cell.addEventListener("click", function (event) {
+          event.stopPropagation();
+          selectTask(task.id);
+        });
         return cell;
       }
 
@@ -906,8 +915,7 @@
           row.appendChild(bar);
         }
         row.addEventListener("click", function () {
-          selectedId = task.id;
-          render();
+          selectTask(task.id);
         });
         return row;
       }
@@ -934,6 +942,18 @@
         document.getElementById("deleteTaskButton").disabled = !selected;
       }
 
+      function selectTask(taskId) {
+        if (!findTask(taskId)) { return; }
+        selectedId = taskId;
+        taskRowsElement.querySelectorAll(".task-row").forEach(function (row) {
+          row.classList.toggle("is-selected", row.dataset.taskId === taskId);
+        });
+        timelineCanvas.querySelectorAll(".timeline-row").forEach(function (row) {
+          row.classList.toggle("is-selected", row.dataset.taskId === taskId);
+        });
+        updateTaskActionButtons();
+      }
+
       function visibleMoveTarget(task, direction) {
         var rows = visibleRows();
         var position = rows.findIndex(function (entry) { return entry.task.id === task.id; });
@@ -954,8 +974,14 @@
         input.type = "text";
         input.value = task.name;
         input.title = "编辑任务名称";
-        input.addEventListener("click", function (event) { event.stopPropagation(); });
-        input.addEventListener("focus", function (event) { event.stopPropagation(); });
+        input.addEventListener("click", function (event) {
+          event.stopPropagation();
+          selectTask(task.id);
+        });
+        input.addEventListener("focus", function (event) {
+          event.stopPropagation();
+          selectTask(task.id);
+        });
         input.addEventListener("change", function () {
           updateTaskField(task, "name", input.value);
         });

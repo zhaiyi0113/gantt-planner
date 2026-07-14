@@ -8,6 +8,7 @@
     :root {
       --row-height: 45px;
       --header-height: 80px;
+      --project-row-height: 48px;
       --left-width: 910px;
       --toolbar-space: 82px;
       --day-width: 8.5px;
@@ -42,7 +43,7 @@
       height: 100%;
       min-width: 960px;
       display: grid;
-      grid-template-rows: var(--header-height) minmax(0, 1fr);
+      grid-template-rows: var(--project-row-height) var(--header-height) minmax(0, 1fr);
       padding-top: var(--toolbar-space);
       background: #fff;
       user-select: none;
@@ -53,6 +54,63 @@
       display: grid;
       grid-template-columns: var(--left-width) minmax(0, 1fr);
       min-width: 0;
+    }
+
+    .project-row {
+      display: grid;
+      grid-template-columns: var(--left-width) minmax(0, 1fr);
+      min-width: 0;
+      background: #fff;
+    }
+
+    .project-row-left {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+      padding: 7px 15px;
+      border-top: 1px solid var(--line);
+      border-right: 2px solid #e1e5ea;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .project-row-right {
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(90deg, #fff, #fbfcfd);
+    }
+
+    .project-name-label {
+      display: inline-flex;
+      flex: 1 1 auto;
+      gap: 8px;
+      align-items: center;
+      min-width: 0;
+      color: #243749;
+      font-size: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .project-name-input {
+      flex: 1 1 auto;
+      min-width: 120px;
+      height: 30px;
+      padding: 4px 8px;
+      border: 1px solid #b8c4cf;
+      border-radius: 4px;
+      color: #172b3e;
+      background: #fff;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      user-select: text;
+    }
+
+    .project-name-input:focus {
+      border-color: #287bc8;
+      outline: 2px solid rgba(40,123,200,.2);
+      outline-offset: 1px;
     }
 
     .task-header {
@@ -781,6 +839,15 @@
 </head>
 <body>
   <main class="gantt-app" aria-label="可编辑甘特图">
+    <section class="project-row" aria-label="项目名称">
+      <div class="project-row-left">
+        <label class="project-name-label" for="projectName"><span id="projectLabel">Project：</span>
+          <input class="project-name-input" id="projectName" type="text" placeholder="填写项目名称" autocomplete="off">
+        </label>
+        <button class="file-action" id="newGanttButton" type="button">新建甘特图</button>
+      </div>
+      <div class="project-row-right" aria-hidden="true"></div>
+    </section>
     <section class="gantt-header" aria-label="甘特图表头">
       <div class="task-header">
         <div class="column-header"><span>Task Name</span><button class="header-menu" id="mainMenuButton" aria-label="打开编辑菜单">⋮</button></div>
@@ -868,6 +935,7 @@
       var LANGUAGE_KEY = "editable-gantt-language-v1";
       var TABLE_WIDTH_KEY = "editable-gantt-table-width-v1";
       var FINAL_DATE_KEY = "editable-gantt-final-presentation-date-v1";
+      var PROJECT_NAME_KEY = "editable-gantt-project-name-v1";
       var MAX_HISTORY_STEPS = 80;
       var MIN_TABLE_WIDTH = 750;
       var MIN_TIMELINE_WIDTH = 280;
@@ -897,6 +965,7 @@
       var actionMenu = document.getElementById("actionMenu");
       var importInput = document.getElementById("importInput");
       var languageSelect = document.getElementById("languageSelect");
+      var projectNameInput = document.getElementById("projectName");
       var finalPresentationInput = document.getElementById("finalPresentationDate");
       var datePicker = document.getElementById("datePicker");
       var datePickerTitle = document.getElementById("datePickerTitle");
@@ -950,6 +1019,11 @@
           loadFile: "读取项目文件（JSON）",
           language: "语言",
           projectActions: "项目文件操作",
+          project: "项目：",
+          projectNamePlaceholder: "填写项目名称",
+          newGantt: "新建甘特图",
+          newGanttConfirm: "新建空白甘特图？当前项目数据将被替换。",
+          newGanttCreated: "已新建空白甘特图，请添加并编辑任务。",
           progressLegend: "当前日期与进度图例",
           completed: "已完成",
           remaining: "剩余",
@@ -1017,6 +1091,11 @@
           loadFile: "Load JSON",
           language: "Language",
           projectActions: "Project file actions",
+          project: "Project:",
+          projectNamePlaceholder: "Enter project name",
+          newGantt: "New Gantt",
+          newGanttConfirm: "Create a blank Gantt chart? The current project data will be replaced.",
+          newGanttCreated: "Created a blank Gantt chart. Add and edit tasks to begin.",
           progressLegend: "Current date and progress legend",
           completed: "Completed",
           remaining: "Remaining",
@@ -1058,6 +1137,7 @@
 
       var tasks = loadTasks();
       lastSavedSnapshot = JSON.stringify(tasks);
+      var projectName = loadProjectName();
       var finalPresentationDate = loadFinalPresentationDate();
 
       function parseDate(value) {
@@ -1164,6 +1244,25 @@
         } catch (error) {
           return "zh-CN";
         }
+      }
+
+      function loadProjectName() {
+        try { return localStorage.getItem(PROJECT_NAME_KEY) || ""; }
+        catch (error) { return ""; }
+      }
+
+      function setProjectName(nextName) {
+        projectName = String(nextName || "").trim();
+        projectNameInput.value = projectName;
+        try { localStorage.setItem(PROJECT_NAME_KEY, projectName); } catch (error) { /* Storage is optional. */ }
+      }
+
+      function updateProjectRow() {
+        document.querySelector(".project-row").setAttribute("aria-label", tr("project"));
+        document.getElementById("projectLabel").textContent = tr("project");
+        projectNameInput.placeholder = tr("projectNamePlaceholder");
+        projectNameInput.value = projectName;
+        document.getElementById("newGanttButton").textContent = tr("newGantt");
       }
 
       function loadTableWidth() {
@@ -1362,6 +1461,7 @@
         document.title = tr("pageTitle");
         document.querySelector(".gantt-app").setAttribute("aria-label", tr("appLabel"));
         document.querySelector(".gantt-header").setAttribute("aria-label", tr("timeline"));
+        updateProjectRow();
         taskPane.setAttribute("aria-label", tr("taskTable"));
         timelinePane.setAttribute("aria-label", tr("timeline"));
         headers.forEach(function (header, index) { header.textContent = values[index]; });
@@ -1402,7 +1502,7 @@
           var stored = localStorage.getItem(STORAGE_KEY);
           if (stored) {
             var parsed = JSON.parse(stored);
-            if (Array.isArray(parsed) && parsed.length) { return parsed; }
+            if (Array.isArray(parsed)) { return parsed; }
           }
         } catch (error) {
           console.warn("无法读取已保存的数据", error);
@@ -2114,12 +2214,39 @@
       }
 
       function saveCurrentProject() {
+        setProjectName(projectNameInput.value);
         persistTasks();
         showToast(tr("projectSaved"));
       }
 
+      function createNewGantt() {
+        if (!window.confirm(tr("newGanttConfirm"))) { return; }
+        tasks = [];
+        selectedId = null;
+        collapsedIds.clear();
+        setProjectName("");
+        finalPresentationDate = formatDate(todayUtcDate());
+        saveFinalPresentationDate();
+        timelineStart = addDays(todayUtcDate(), -7);
+        timelineEnd = addDays(todayUtcDate(), 21);
+        undoStack = [];
+        redoStack = [];
+        lastSavedSnapshot = JSON.stringify(tasks);
+        persistTasks();
+        updateHistoryButtons();
+        updateFinalPresentationPanel();
+        render();
+        showToast(tr("newGanttCreated"));
+      }
+
       function exportTasks() {
-        var blob = new Blob([JSON.stringify(tasks, null, 2)], { type: "application/json" });
+        var projectFile = {
+          version: 2,
+          projectName: projectName,
+          finalPresentationDate: finalPresentationDate,
+          tasks: tasks
+        };
+        var blob = new Blob([JSON.stringify(projectFile, null, 2)], { type: "application/json" });
         var url = URL.createObjectURL(blob);
         var link = document.createElement("a");
         link.href = url;
@@ -2159,9 +2286,16 @@
         var reader = new FileReader();
         reader.onload = function () {
           try {
-            var incoming = JSON.parse(reader.result);
+            var importedFile = JSON.parse(reader.result);
+            var incoming = Array.isArray(importedFile) ? importedFile : importedFile && importedFile.tasks;
             if (!validateImport(incoming)) { throw new Error("格式不正确"); }
             tasks = incoming;
+            if (!Array.isArray(importedFile) && typeof importedFile.projectName === "string") {
+              setProjectName(importedFile.projectName);
+            }
+            if (!Array.isArray(importedFile) && isValidDateValue(importedFile.finalPresentationDate)) {
+              setFinalPresentationDate(importedFile.finalPresentationDate);
+            }
             selectedId = null;
             collapsedIds.clear();
             saveTasks();
@@ -2201,9 +2335,17 @@
       document.getElementById("undoButton").addEventListener("click", undoChanges);
       document.getElementById("redoButton").addEventListener("click", redoChanges);
       document.getElementById("saveButton").addEventListener("click", saveCurrentProject);
+      document.getElementById("newGanttButton").addEventListener("click", createNewGantt);
       document.getElementById("saveProjectButton").addEventListener("click", exportTasks);
       document.getElementById("loadProjectButton").addEventListener("click", openProjectFile);
       languageSelect.addEventListener("change", function () { setLanguage(languageSelect.value); });
+      projectNameInput.addEventListener("change", function () { setProjectName(projectNameInput.value); });
+      projectNameInput.addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+          setProjectName(projectNameInput.value);
+          projectNameInput.blur();
+        }
+      });
       finalPresentationInput.addEventListener("click", function (event) {
         event.stopPropagation();
         openDatePicker(finalPresentationInput, finalPresentationDate, setFinalPresentationDate);

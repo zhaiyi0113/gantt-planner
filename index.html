@@ -946,6 +946,7 @@
 
       var DAY = 86400000;
       var STORAGE_KEY = "editable-gantt-reference-v1";
+      var EMPTY_PROJECT_KEY = "editable-gantt-empty-project-v1";
       var LANGUAGE_KEY = "editable-gantt-language-v1";
       var TABLE_WIDTH_KEY = "editable-gantt-table-width-v1";
       var FINAL_DATE_KEY = "editable-gantt-final-presentation-date-v1";
@@ -1514,7 +1515,8 @@
           var stored = localStorage.getItem(STORAGE_KEY);
           if (stored) {
             var parsed = JSON.parse(stored);
-            if (Array.isArray(parsed)) { return parsed; }
+            if (Array.isArray(parsed) && parsed.length) { return normalizeTasks(parsed); }
+            if (Array.isArray(parsed) && localStorage.getItem(EMPTY_PROJECT_KEY) === "true") { return []; }
           }
         } catch (error) {
           console.warn("无法读取已保存的数据", error);
@@ -1525,6 +1527,7 @@
       function persistTasks() {
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+          localStorage.setItem(EMPTY_PROJECT_KEY, tasks.length ? "false" : "true");
         } catch (error) {
           showToast(currentLanguage === "en" ?
             "Your browser could not save the project; use Save project file (JSON) as a backup." :
@@ -1553,7 +1556,7 @@
       function restoreHistory(snapshot) {
         var restored = JSON.parse(snapshot);
         if (!validateImport(restored)) { throw new Error("Invalid history data"); }
-        tasks = restored;
+        tasks = normalizeTasks(restored);
         selectedId = null;
         collapsedIds.clear();
         lastSavedSnapshot = snapshot;
@@ -2134,7 +2137,7 @@
           start: suggestedDate,
           end: suggestedDate,
           type: type === "milestone" ? "milestone" : "yellow",
-          parent: parent
+          parent: typeof parent === "string" && parent ? parent : null
         };
         if (type !== "milestone") {
           newTask.end = formatDate(addDays(parseDate(suggestedDate), 4));
@@ -2288,7 +2291,16 @@
         return Array.isArray(data) && data.every(function (task) {
           return task && typeof task.id === "string" && typeof task.name === "string" &&
             typeof task.start === "string" && typeof task.end === "string" &&
-            typeof task.type === "string" && ("parent" in task);
+            typeof task.type === "string" &&
+            (!("parent" in task) || task.parent === null || typeof task.parent === "string");
+        });
+      }
+
+      function normalizeTasks(data) {
+        return data.map(function (task) {
+          var normalized = Object.assign({}, task);
+          normalized.parent = typeof task.parent === "string" && task.parent ? task.parent : null;
+          return normalized;
         });
       }
 
@@ -2301,7 +2313,7 @@
             var importedFile = JSON.parse(reader.result);
             var incoming = Array.isArray(importedFile) ? importedFile : importedFile && importedFile.tasks;
             if (!validateImport(incoming)) { throw new Error("格式不正确"); }
-            tasks = incoming;
+            tasks = normalizeTasks(incoming);
             if (!Array.isArray(importedFile) && typeof importedFile.projectName === "string") {
               setProjectName(importedFile.projectName);
             }
@@ -2411,4 +2423,39 @@
 
       taskPane.addEventListener("scroll", function () {
         if (!scrollLock) {
-          scrollLock = tru
+          scrollLock = true;
+          timelinePane.scrollTop = taskPane.scrollTop;
+          scrollLock = false;
+        }
+      });
+
+      timelineCanvas.addEventListener("pointerdown", startDrag);
+      paneResizer.addEventListener("pointerdown", startTableResize);
+      paneResizer.addEventListener("keydown", function (event) {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") { return; }
+        event.preventDefault();
+        setTableWidth(tableWidth + (event.key === "ArrowLeft" ? -1 : 1) * (event.shiftKey ? 50 : 20), true);
+      });
+      document.addEventListener("pointermove", moveDrag);
+      document.addEventListener("pointermove", moveTableResize);
+      document.addEventListener("pointerup", endDrag);
+      document.addEventListener("pointerup", endTableResize);
+      document.addEventListener("pointercancel", endDrag);
+      document.addEventListener("pointercancel", endTableResize);
+      importInput.addEventListener("change", importTasks);
+      window.addEventListener("resize", function () {
+        setTableWidth(tableWidth, false);
+        hideDatePicker();
+        render();
+      });
+
+      setTableWidth(tableWidth, false);
+      applyTranslations();
+      lastProgressDate = formatDate(todayUtcDate());
+      window.setInterval(refreshProgressForNewDay, 60000);
+      render();
+      updateHistoryButtons();
+    }());
+  </script>
+</body>
+</html>

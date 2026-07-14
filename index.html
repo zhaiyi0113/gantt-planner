@@ -116,7 +116,7 @@
 
     .task-header {
       display: grid;
-      grid-template-columns: minmax(260px, 1.7fr) minmax(110px, .78fr) minmax(110px, .78fr) minmax(90px, .55fr) minmax(70px, .4fr);
+      grid-template-columns: minmax(260px, 1.7fr) minmax(110px, .78fr) minmax(110px, .78fr) minmax(90px, .55fr) minmax(108px, .52fr);
       height: var(--header-height);
       background: var(--header);
       border-top: 1px solid var(--line);
@@ -267,7 +267,7 @@
     .task-row {
       height: var(--row-height);
       display: grid;
-      grid-template-columns: minmax(260px, 1.7fr) minmax(110px, .78fr) minmax(110px, .78fr) minmax(90px, .55fr) minmax(70px, .4fr);
+      grid-template-columns: minmax(260px, 1.7fr) minmax(110px, .78fr) minmax(110px, .78fr) minmax(90px, .55fr) minmax(108px, .52fr);
       border-bottom: 1px solid var(--line);
       background: #fff;
       cursor: default;
@@ -289,6 +289,20 @@
     .task-cell:first-child { border-left: 0; }
 
     .task-cell:not(.name-cell) { white-space: nowrap; }
+
+    .weeks-cell { min-width: 0; }
+
+    .gantt-app.is-table-compact .task-cell {
+      padding-right: 10px;
+      padding-left: 10px;
+      font-size: 15px;
+    }
+
+    .gantt-app.is-table-compact .column-header {
+      padding-right: 9px;
+      padding-left: 11px;
+      font-size: 14px;
+    }
 
     .name-cell {
       gap: 8px;
@@ -833,10 +847,10 @@
     }
 
     @media (max-width: 1200px) {
-      :root { --left-width: 750px; }
-      .task-header, .task-row { grid-template-columns: minmax(300px, 1fr) 125px 125px 110px 90px; }
-      .task-cell { font-size: 15px; padding-left: 11px; padding-right: 11px; }
-      .column-header { font-size: 15px; padding-left: 11px; }
+      :root { --left-width: 780px; }
+      .task-header, .task-row { grid-template-columns: minmax(280px, 1fr) 120px 120px 104px 116px; }
+      .task-cell { font-size: 14px; padding-left: 9px; padding-right: 9px; }
+      .column-header { font-size: 14px; padding-right: 8px; padding-left: 10px; }
     }
   </style>
 </head>
@@ -940,7 +954,7 @@
       var FINAL_DATE_KEY = "editable-gantt-final-presentation-date-v1";
       var PROJECT_NAME_KEY = "editable-gantt-project-name-v1";
       var MAX_HISTORY_STEPS = 80;
-      var MIN_TABLE_WIDTH = 750;
+      var MIN_TABLE_WIDTH = 780;
       var MIN_TIMELINE_WIDTH = 280;
       var DAY_WIDTH = 8.5;
       var timelineStart = parseDate("2026-04-20");
@@ -1424,6 +1438,7 @@
       function setTableWidth(nextWidth, persist) {
         tableWidth = Math.round(Math.max(MIN_TABLE_WIDTH, Math.min(maximumTableWidth(), nextWidth)));
         document.documentElement.style.setProperty("--left-width", tableWidth + "px");
+        document.querySelector(".gantt-app").classList.toggle("is-table-compact", tableWidth < 840);
         paneResizer.setAttribute("aria-valuemin", String(MIN_TABLE_WIDTH));
         paneResizer.setAttribute("aria-valuemax", String(maximumTableWidth()));
         paneResizer.setAttribute("aria-valuenow", String(tableWidth));

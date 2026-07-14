@@ -20,10 +20,6 @@
       --select: #edf5ff;
       --green: #61c536;
       --yellow: #ffff4f;
-      --purple: #d73de5;
-      --blue: #4a7fec;
-      --summary: #757e86;
-      --summary-dark: #4a5057;
     }
 
     * { box-sizing: border-box; }
@@ -419,6 +415,21 @@
       border-color: #58af34;
     }
 
+    /* Force every legacy and current task bar to use only progress colors. */
+    .bar.green,
+    .bar.yellow,
+    .bar.purple,
+    .bar.blue,
+    .bar.summary {
+      border-color: #d1d142 !important;
+      background: var(--yellow) !important;
+    }
+
+    .bar-progress,
+    .summary-progress {
+      background: var(--green) !important;
+    }
+
     .bar:focus-visible, .milestone:focus-visible {
       outline: 2px solid #1376d1;
       outline-offset: 2px;
@@ -614,6 +625,43 @@
 
     .toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
 
+    .today-indicator {
+      position: fixed;
+      right: 20px;
+      bottom: 18px;
+      z-index: 31;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 11px;
+      border: 1px solid #d8dfe6;
+      border-radius: 6px;
+      color: #334454;
+      background: rgba(255,255,255,.96);
+      box-shadow: 0 3px 14px rgba(18, 28, 42, .12);
+      font-size: 12px;
+      font-weight: 600;
+      user-select: none;
+    }
+
+    .progress-legend-item {
+      display: inline-flex;
+      gap: 5px;
+      align-items: center;
+      white-space: nowrap;
+    }
+
+    .progress-swatch {
+      width: 11px;
+      height: 11px;
+      border: 1px solid rgba(36, 46, 54, .22);
+      border-radius: 3px;
+    }
+
+    .progress-swatch.done { background: var(--green); border-color: #58af34; }
+    .progress-swatch.remaining { background: var(--yellow); border-color: #d1d142; }
+    .today-date { padding-left: 2px; color: #162b3f; white-space: nowrap; }
+
     .hidden-input { display: none; }
 
     @media (max-width: 1200px) {
@@ -675,6 +723,11 @@
     <button class="file-action danger" id="deleteTaskButton" type="button">删除任务</button>
   </aside>
   <div class="action-menu" id="actionMenu" hidden></div>
+  <aside class="today-indicator" id="todayIndicator" aria-label="当前日期与进度图例">
+    <span class="progress-legend-item"><i class="progress-swatch done"></i><span id="completedLabel">已完成</span></span>
+    <span class="progress-legend-item"><i class="progress-swatch remaining"></i><span id="remainingLabel">剩余</span></span>
+    <strong class="today-date" id="todayDate">今天：2026-07-14</strong>
+  </aside>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <input class="hidden-input" type="file" id="importInput" accept="application/json,.json">
 
@@ -725,10 +778,10 @@
         { id: "aaf", name: "AAF replacement", start: "2026-06-01", end: "2026-06-12", type: "yellow", parent: "transistor" },
         { id: "adc", name: "ADC replacement", start: "2026-06-15", end: "2026-06-26", type: "yellow", parent: "transistor" },
         { id: "digital", name: "Digital processing", start: "2026-06-29", end: "2026-07-10", type: "yellow", parent: "system" },
-        { id: "report", name: "Final report writing", start: "2026-06-29", end: "2026-07-24", type: "purple", parent: "system" },
+        { id: "report", name: "Final report writing", start: "2026-06-29", end: "2026-07-24", type: "yellow", parent: "system" },
         { id: "layout", name: "Layout and Post-layout simulation", start: "2026-07-13", end: "2026-08-07", type: "yellow", parent: "system" },
         { id: "handin", name: "Final report hand-in", start: "2026-07-24", end: "2026-07-24", type: "milestone", parent: "system" },
-        { id: "subsystem", name: "Subsystem improvement", start: "2026-07-13", end: "2026-08-07", type: "blue", parent: null }
+        { id: "subsystem", name: "Subsystem improvement", start: "2026-07-13", end: "2026-08-07", type: "yellow", parent: null }
       ];
 
       var translations = {
@@ -761,6 +814,10 @@
           loadFile: "读取项目文件（JSON）",
           language: "语言",
           projectActions: "项目文件操作",
+          progressLegend: "当前日期与进度图例",
+          completed: "已完成",
+          remaining: "剩余",
+          today: "今天",
           days: "天",
           editTaskName: "编辑任务名称",
           editSummaryDate: "编辑汇总日期（之后不再随子任务自动变化）",
@@ -818,6 +875,10 @@
           loadFile: "Load project file (JSON)",
           language: "Language",
           projectActions: "Project file actions",
+          progressLegend: "Current date and progress legend",
+          completed: "Completed",
+          remaining: "Remaining",
+          today: "Today",
           days: "days",
           editTaskName: "Edit task name",
           editSummaryDate: "Edit summary date (it will no longer follow child tasks automatically)",
@@ -865,6 +926,14 @@
         return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
       }
 
+      function updateTodayIndicator() {
+        document.getElementById("todayIndicator").setAttribute("aria-label", tr("progressLegend"));
+        document.getElementById("completedLabel").textContent = tr("completed");
+        document.getElementById("remainingLabel").textContent = tr("remaining");
+        document.getElementById("todayDate").textContent = tr("today") +
+          (currentLanguage === "en" ? ": " : "：") + formatDate(todayUtcDate());
+      }
+
       function taskProgressPercent(range) {
         var start = parseDate(range.start);
         var end = parseDate(range.end);
@@ -889,6 +958,7 @@
         var today = formatDate(todayUtcDate());
         if (today !== lastProgressDate) {
           lastProgressDate = today;
+          updateTodayIndicator();
           render();
         }
       }
@@ -1026,6 +1096,7 @@
         document.getElementById("languageLabel").textContent = tr("language");
         languageSelect.setAttribute("aria-label", tr("language"));
         languageSelect.value = currentLanguage;
+        updateTodayIndicator();
       }
 
       function setLanguage(language) {

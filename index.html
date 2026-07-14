@@ -21,6 +21,8 @@
       --select: #edf5ff;
       --green: #61c536;
       --yellow: #ffff4f;
+      --red: #ef5350;
+      --blue: #4a7ee8;
     }
 
     * { box-sizing: border-box; }
@@ -489,20 +491,21 @@
       border-color: #58af34;
     }
 
-    /* Force every legacy and current task bar to use only progress colors. */
-    .bar.green,
-    .bar.yellow,
-    .bar.purple,
-    .bar.blue,
-    .bar.summary {
+    /* Automatic colors show progress up to today in green and the remainder in yellow. */
+    .bar.auto-color,
+    .bar.summary.auto-color {
       border-color: #d1d142 !important;
       background: var(--yellow) !important;
     }
 
-    .bar-progress,
-    .summary-progress {
+    .bar.auto-color .bar-progress {
       background: var(--green) !important;
     }
+
+    .bar.manual-red, .milestone.manual-red { background: var(--red) !important; border-color: #c83f3f !important; }
+    .bar.manual-yellow, .milestone.manual-yellow { background: var(--yellow) !important; border-color: #d1d142 !important; }
+    .bar.manual-green, .milestone.manual-green { background: var(--green) !important; border-color: #58af34 !important; }
+    .bar.manual-blue, .milestone.manual-blue { background: var(--blue) !important; border-color: #2d61c8 !important; }
 
     .bar:focus-visible, .milestone:focus-visible {
       outline: 2px solid #1376d1;
@@ -591,6 +594,33 @@
       color: #273649;
       font-family: inherit;
       font-size: 11px;
+    }
+
+    .task-color-picker {
+      display: inline-flex;
+      gap: 5px;
+      align-items: center;
+      color: #4e5a67;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .task-color-picker select {
+      min-height: 27px;
+      padding: 3px 24px 3px 7px;
+      border: 1px solid #cfd7df;
+      border-radius: 4px;
+      color: #1c354b;
+      background: #fff;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .task-color-picker select:disabled {
+      color: #8c97a2;
+      background: #f3f5f7;
+      cursor: not-allowed;
     }
 
     .file-action {
@@ -883,6 +913,15 @@
       <button class="file-action primary" id="addTaskButton" type="button">＋ 添加任务</button>
       <button class="file-action" id="outdentTaskButton" type="button">减少层级</button>
       <button class="file-action danger" id="deleteTaskButton" type="button">删除任务</button>
+      <label class="task-color-picker" for="taskColorSelect"><span id="taskColorLabel">颜色</span>
+        <select id="taskColorSelect" aria-label="任务颜色" disabled>
+          <option value="auto">自动（按日期）</option>
+          <option value="red">红色</option>
+          <option value="yellow">黄色</option>
+          <option value="green">绿色</option>
+          <option value="blue">蓝色</option>
+        </select>
+      </label>
     </aside>
     <section class="gantt-header" aria-label="甘特图表头">
       <div class="task-header">
@@ -980,6 +1019,7 @@
       var actionMenu = document.getElementById("actionMenu");
       var importInput = document.getElementById("importInput");
       var languageSelect = document.getElementById("languageSelect");
+      var taskColorSelect = document.getElementById("taskColorSelect");
       var projectNameInput = document.getElementById("projectName");
       var finalPresentationInput = document.getElementById("finalPresentationDate");
       var datePicker = document.getElementById("datePicker");
@@ -1024,6 +1064,12 @@
           moveUp: "↑ 上移一行",
           moveDown: "↓ 下移一行",
           addTask: "+ 添加任务",
+          taskColor: "颜色",
+          autoColor: "自动（按日期）",
+          redColor: "红色",
+          yellowColor: "黄色",
+          greenColor: "绿色",
+          blueColor: "蓝色",
           outdent: "减少层级",
           deleteTask: "删除任务",
           undo: "撤销",
@@ -1095,6 +1141,12 @@
           moveUp: "↑ Move up one row",
           moveDown: "↓ Move down one row",
           addTask: "+ Add task",
+          taskColor: "Color",
+          autoColor: "Automatic (by date)",
+          redColor: "Red",
+          yellowColor: "Yellow",
+          greenColor: "Green",
+          blueColor: "Blue",
           outdent: "Reduce level",
           deleteTask: "Delete task",
           undo: "Undo",
@@ -1193,6 +1245,10 @@
           return task.name + ": " + percent + "% complete as of " + today;
         }
         return task.name + "：截至 " + today + " 已完成 " + percent + "%";
+      }
+
+      function taskColorMode(task) {
+        return ["red", "yellow", "green", "blue"].indexOf(task && task.color) >= 0 ? task.color : "auto";
       }
 
       function refreshProgressForNewDay() {
@@ -1488,6 +1544,13 @@
         document.getElementById("addTaskButton").textContent = tr("addTask");
         document.getElementById("outdentTaskButton").textContent = tr("outdent");
         document.getElementById("deleteTaskButton").textContent = tr("deleteTask");
+        document.getElementById("taskColorLabel").textContent = tr("taskColor");
+        taskColorSelect.setAttribute("aria-label", tr("taskColor"));
+        taskColorSelect.querySelector('[value="auto"]').textContent = tr("autoColor");
+        taskColorSelect.querySelector('[value="red"]').textContent = tr("redColor");
+        taskColorSelect.querySelector('[value="yellow"]').textContent = tr("yellowColor");
+        taskColorSelect.querySelector('[value="green"]').textContent = tr("greenColor");
+        taskColorSelect.querySelector('[value="blue"]').textContent = tr("blueColor");
         document.querySelector(".project-actions").setAttribute("aria-label", tr("projectActions"));
         paneResizer.setAttribute("aria-label", tr("resizePanels"));
         document.getElementById("undoButton").textContent = tr("undo");
@@ -1819,7 +1882,8 @@
         if (task.type === "milestone") {
           var milestone = document.createElement("div");
           var milestoneComplete = taskProgressPercent(range) >= 100;
-          milestone.className = "milestone" + (milestoneComplete ? " is-complete" : "");
+          var milestoneColor = taskColorMode(task);
+          milestone.className = "milestone" + (milestoneColor === "auto" ? (milestoneComplete ? " is-complete" : "") : " manual-" + milestoneColor);
           milestone.dataset.taskId = task.id;
           milestone.tabIndex = 0;
           milestone.setAttribute("aria-label", progressDescription(task, range));
@@ -1829,7 +1893,8 @@
         } else {
           var bar = document.createElement("div");
           var progressPercent = taskProgressPercent(range);
-          bar.className = "bar" + (task.type === "summary" ? " summary" : "");
+          var barColor = taskColorMode(task);
+          bar.className = "bar" + (task.type === "summary" ? " summary" : "") + (barColor === "auto" ? " auto-color" : " manual-" + barColor);
           bar.dataset.taskId = task.id;
           bar.tabIndex = 0;
           bar.title = progressDescription(task, range);
@@ -1838,10 +1903,12 @@
           var width = (dayDifference(parseDate(range.start), parseDate(range.end)) + 1) * DAY_WIDTH;
           bar.style.left = left + "px";
           bar.style.width = Math.max(width, 8) + "px";
-          var progress = document.createElement("div");
-          progress.className = "bar-progress";
-          progress.style.width = progressPercent + "%";
-          bar.appendChild(progress);
+          if (barColor === "auto") {
+            var progress = document.createElement("div");
+            progress.className = "bar-progress";
+            progress.style.width = progressPercent + "%";
+            bar.appendChild(progress);
+          }
           row.appendChild(bar);
         }
         row.addEventListener("click", function () {
@@ -1870,6 +1937,8 @@
         document.getElementById("moveDownButton").disabled = !selected || !visibleMoveTarget(selected, "down");
         document.getElementById("outdentTaskButton").disabled = !selected || !selected.parent;
         document.getElementById("deleteTaskButton").disabled = !selected;
+        taskColorSelect.disabled = !selected;
+        taskColorSelect.value = selected ? taskColorMode(selected) : "auto";
       }
 
       function selectTask(taskId) {
@@ -2137,6 +2206,7 @@
           start: suggestedDate,
           end: suggestedDate,
           type: type === "milestone" ? "milestone" : "yellow",
+          color: "auto",
           parent: typeof parent === "string" && parent ? parent : null
         };
         if (type !== "milestone") {
@@ -2300,6 +2370,7 @@
         return data.map(function (task) {
           var normalized = Object.assign({}, task);
           normalized.parent = typeof task.parent === "string" && task.parent ? task.parent : null;
+          normalized.color = taskColorMode(normalized);
           return normalized;
         });
       }
@@ -2362,6 +2433,13 @@
       document.getElementById("newGanttButton").addEventListener("click", createNewGantt);
       document.getElementById("saveProjectButton").addEventListener("click", exportTasks);
       document.getElementById("loadProjectButton").addEventListener("click", openProjectFile);
+      taskColorSelect.addEventListener("change", function () {
+        var selected = findTask(selectedId);
+        if (!selected) { return; }
+        selected.color = taskColorMode({ color: taskColorSelect.value });
+        saveTasks();
+        render();
+      });
       languageSelect.addEventListener("change", function () { setLanguage(languageSelect.value); });
       projectNameInput.addEventListener("change", function () { setProjectName(projectNameInput.value); });
       projectNameInput.addEventListener("keydown", function (event) {

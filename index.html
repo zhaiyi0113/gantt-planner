@@ -43,7 +43,7 @@
       position: relative;
       width: 100%;
       height: 100%;
-      min-width: 960px;
+      min-width: 0;
       display: grid;
       grid-template-rows: var(--project-row-height) var(--instruction-row-height) var(--header-height) minmax(0, 1fr);
       background: #fff;
@@ -991,8 +991,10 @@
       var FINAL_DATE_KEY = "editable-gantt-final-presentation-date-v1";
       var PROJECT_NAME_KEY = "editable-gantt-project-name-v1";
       var MAX_HISTORY_STEPS = 80;
-      var MIN_TABLE_WIDTH = 780;
-      var MIN_TIMELINE_WIDTH = 280;
+      // Keep the timeline visible even when a previously saved table width is
+      // wider than the current browser window.
+      var MIN_TABLE_WIDTH = 600;
+      var MIN_TIMELINE_WIDTH = 360;
       var DAY_WIDTH = 8.5;
       var timelineStart = parseDate("2026-04-20");
       var timelineEnd = parseDate("2026-08-16");
@@ -1485,15 +1487,23 @@
         renderDatePicker();
       }
 
+      function minimumTableWidth() {
+        // On narrow windows, allow the table to shrink before hiding the Gantt
+        // chart. The table keeps a practical minimum on regular desktops.
+        return Math.min(MIN_TABLE_WIDTH, Math.max(360, Math.round(window.innerWidth * 0.52)));
+      }
+
       function maximumTableWidth() {
-        return Math.max(MIN_TABLE_WIDTH, window.innerWidth - MIN_TIMELINE_WIDTH);
+        var minimum = minimumTableWidth();
+        return Math.max(minimum, window.innerWidth - MIN_TIMELINE_WIDTH);
       }
 
       function setTableWidth(nextWidth, persist) {
-        tableWidth = Math.round(Math.max(MIN_TABLE_WIDTH, Math.min(maximumTableWidth(), nextWidth)));
+        var minimum = minimumTableWidth();
+        tableWidth = Math.round(Math.max(minimum, Math.min(maximumTableWidth(), nextWidth)));
         document.documentElement.style.setProperty("--left-width", tableWidth + "px");
         document.querySelector(".gantt-app").classList.toggle("is-table-compact", tableWidth < 840);
-        paneResizer.setAttribute("aria-valuemin", String(MIN_TABLE_WIDTH));
+        paneResizer.setAttribute("aria-valuemin", String(minimum));
         paneResizer.setAttribute("aria-valuemax", String(maximumTableWidth()));
         paneResizer.setAttribute("aria-valuenow", String(tableWidth));
         if (persist) {

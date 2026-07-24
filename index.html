@@ -994,7 +994,11 @@
       // Keep the timeline visible even when a previously saved table width is
       // wider than the current browser window.
       var MIN_TABLE_WIDTH = 600;
-      var MIN_TIMELINE_WIDTH = 360;
+      // Preserve enough room for several date columns, especially on a
+      // narrow screen. The task table can compact before the timeline does.
+      var MIN_TIMELINE_WIDTH = 420;
+      var TIMELINE_LEADING_DAYS = 7;
+      var TIMELINE_TRAILING_DAYS = 42;
       var DAY_WIDTH = 8.5;
       var timelineStart = parseDate("2026-04-20");
       var timelineEnd = parseDate("2026-08-16");
@@ -1489,8 +1493,8 @@
 
       function minimumTableWidth() {
         // On narrow windows, allow the table to shrink before hiding the Gantt
-        // chart. The table keeps a practical minimum on regular desktops.
-        return Math.min(MIN_TABLE_WIDTH, Math.max(360, Math.round(window.innerWidth * 0.52)));
+        // chart. This keeps the date header readable beside the task table.
+        return Math.min(MIN_TABLE_WIDTH, Math.max(300, Math.round(window.innerWidth * 0.42)));
       }
 
       function maximumTableWidth() {
@@ -1727,8 +1731,10 @@
         var ranges = tasks.map(function (task) { return displayRange(task); });
         var earliest = ranges.map(function (range) { return range.start; }).sort()[0];
         var latest = ranges.map(function (range) { return range.end; }).sort().slice(-1)[0];
-        timelineStart = addDays(parseDate(earliest), -7);
-        timelineEnd = addDays(parseDate(latest), 9);
+        // Keep several full weeks visible after the final task so the date
+        // header never stops halfway across the right-hand panel.
+        timelineStart = addDays(parseDate(earliest), -TIMELINE_LEADING_DAYS);
+        timelineEnd = addDays(parseDate(latest), TIMELINE_TRAILING_DAYS);
       }
 
       function setTimelineStyle() {
@@ -2324,8 +2330,8 @@
         setProjectName("");
         finalPresentationDate = formatDate(todayUtcDate());
         saveFinalPresentationDate();
-        timelineStart = addDays(todayUtcDate(), -7);
-        timelineEnd = addDays(todayUtcDate(), 21);
+        timelineStart = addDays(todayUtcDate(), -TIMELINE_LEADING_DAYS);
+        timelineEnd = addDays(todayUtcDate(), TIMELINE_TRAILING_DAYS);
         undoStack = [];
         redoStack = [];
         lastSavedSnapshot = JSON.stringify(tasks);
